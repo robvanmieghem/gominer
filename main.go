@@ -20,7 +20,7 @@ func main() {
 		}
 		log.Println(len(devices), "device(s) found:")
 		for i, device := range devices {
-			log.Println(i, "-", device.Name())
+			log.Println(i, "-", device.Type(), "-", device.Name())
 		}
 	}
 }
