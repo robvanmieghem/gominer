@@ -92,8 +92,8 @@ __kernel void nonceGrind(__global ulong *headerIn, __global ulong *nonceOut) {
 
 var getworkurl = "http://localhost:9980/miner/headerforwork"
 var submitblockurl = "http://localhost:9980/miner/submitheader"
-var intensity = 10
-var localItemSize = 8
+var intensity = 26
+var localItemSize = 256
 
 func loadCLProgramSource() (sources []string) {
 	filename := "sia-gpu-miner.cl"
