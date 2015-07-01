@@ -12,7 +12,7 @@ import (
 	"time"
 	"unsafe"
 
-	"github.com/samuel/go-opencl/cl"
+	"github.com/robvanmieghem/go-opencl/cl"
 )
 
 var kernelSource = `
@@ -143,6 +143,9 @@ func enqueueWriteBufferByte(q *cl.CommandQueue, buffer *cl.MemObject, blocking b
 func mine(clDevice *cl.Device, minerID int) {
 	log.Println(minerID, "- Initializing", clDevice.Type(), "-", clDevice.Name())
 
+	globalItemSize := int(math.Exp2(float64(intensity)))
+	log.Println(minerID, "- global item size:", globalItemSize, "- local item size:", localItemSize)
+
 	context, err := cl.CreateContext([]*cl.Device{clDevice})
 	if err != nil {
 		log.Fatalln(minerID, "-", err)
@@ -188,7 +191,6 @@ func mine(clDevice *cl.Device, minerID int) {
 
 	log.Println(minerID, "- Started mining on", clDevice.Type(), "-", clDevice.Name())
 
-	globalItemSize := int(math.Exp2(float64(intensity)))
 	for {
 		start := time.Now()
 
@@ -215,7 +217,6 @@ func mine(clDevice *cl.Device, minerID int) {
 
 		//Run the kernel
 		//globalIDOffset := globalItemSize
-		log.Println(minerID, "- global item size:", globalItemSize, "- local item size:", localItemSize)
 		if _, err = commandQueue.EnqueueNDRangeKernel(kernel, nil, []int{globalItemSize}, []int{localItemSize}, nil); err != nil {
 			log.Fatalln(minerID, "-", err)
 		}
@@ -237,7 +238,7 @@ func mine(clDevice *cl.Device, minerID int) {
 		}
 
 		hashRate := float64(globalItemSize) / (time.Since(start).Seconds() * 1000000)
-		log.Printf("%d - Mining at %.3f MH/s", minerID, hashRate)
+		fmt.Printf("\r%d - Mining at %.3f MH/s", minerID, hashRate)
 
 	}
 
