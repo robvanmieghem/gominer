@@ -10,7 +10,6 @@ import (
 	"math"
 	"net/http"
 	"time"
-	"unsafe"
 
 	"github.com/robvanmieghem/go-opencl/cl"
 )
@@ -92,8 +91,7 @@ __kernel void nonceGrind(__global ulong *headerIn, __global ulong *nonceOut) {
 
 var getworkurl = "http://localhost:9980/miner/headerforwork"
 var submitblockurl = "http://localhost:9980/miner/submitheader"
-var intensity = 26
-var localItemSize = 256
+var intensity = 22
 
 func loadCLProgramSource() (sources []string) {
 	filename := "sia-gpu-miner.cl"
@@ -134,17 +132,8 @@ func submitHeader(header []byte) (err error) {
 	return
 }
 
-func enqueueWriteBufferByte(q *cl.CommandQueue, buffer *cl.MemObject, blocking bool, offset int, data []byte, eventWaitList []*cl.Event) (*cl.Event, error) {
-	dataPtr := unsafe.Pointer(&data[0])
-	dataSize := int(unsafe.Sizeof(data[0])) * len(data)
-	return q.EnqueueWriteBuffer(buffer, blocking, offset, dataSize, dataPtr, eventWaitList)
-}
-
 func mine(clDevice *cl.Device, minerID int) {
 	log.Println(minerID, "- Initializing", clDevice.Type(), "-", clDevice.Name())
-
-	globalItemSize := int(math.Exp2(float64(intensity)))
-	log.Println(minerID, "- global item size:", globalItemSize, "- local item size:", localItemSize)
 
 	context, err := cl.CreateContext([]*cl.Device{clDevice})
 	if err != nil {
@@ -189,6 +178,14 @@ func mine(clDevice *cl.Device, minerID int) {
 	defer nonceOutObj.Release()
 	kernel.SetArgBuffer(1, nonceOutObj)
 
+	localItemSize, err := kernel.WorkGroupSize(clDevice)
+	if err != nil {
+		log.Fatalln(minerID, "- WorkGroupSize failed -", err)
+	}
+
+	globalItemSize := int(math.Exp2(float64(intensity)))
+	log.Println(minerID, "- global item size:", globalItemSize, "- local item size:", localItemSize)
+
 	log.Println(minerID, "- Started mining on", clDevice.Type(), "-", clDevice.Name())
 
 	for {
@@ -206,12 +203,12 @@ func mine(clDevice *cl.Device, minerID int) {
 		//TODO: offset
 
 		//Copy input to kernel args
-		if _, err = enqueueWriteBufferByte(commandQueue, blockHeaderObj, true, 0, header, nil); err != nil {
+		if _, err = commandQueue.EnqueueWriteBufferByte(blockHeaderObj, true, 0, header, nil); err != nil {
 			log.Fatalln(minerID, "-", err)
 		}
 
 		nonceOut := make([]byte, 8, 8) //TODO: get this out of the for loop
-		if _, err = enqueueWriteBufferByte(commandQueue, nonceOutObj, true, 0, nonceOut, nil); err != nil {
+		if _, err = commandQueue.EnqueueWriteBufferByte(nonceOutObj, true, 0, nonceOut, nil); err != nil {
 			log.Fatalln(minerID, "-", err)
 		}
 
@@ -221,8 +218,7 @@ func mine(clDevice *cl.Device, minerID int) {
 			log.Fatalln(minerID, "-", err)
 		}
 		//Get output
-		dataSize := int(unsafe.Sizeof(nonceOut[0])) * len(nonceOut)
-		if _, err = commandQueue.EnqueueReadBuffer(nonceOutObj, true, 0, dataSize, unsafe.Pointer(&nonceOut[0]), nil); err != nil {
+		if _, err = commandQueue.EnqueueReadBufferByte(nonceOutObj, true, 0, nonceOut, nil); err != nil {
 			log.Fatalln(minerID, "_", err)
 		}
 		//Check if match found
