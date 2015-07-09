@@ -3,12 +3,14 @@ package main
 import (
 	"bytes"
 	"errors"
+	"flag"
 	"fmt"
 	"io"
 	"io/ioutil"
 	"log"
 	"math"
 	"net/http"
+	"os"
 	"time"
 
 	"github.com/robvanmieghem/go-opencl/cl"
@@ -92,6 +94,7 @@ __kernel void nonceGrind(__global ulong *headerIn, __global ulong *nonceOut) {
 var getworkurl = "http://localhost:9980/miner/headerforwork"
 var submitblockurl = "http://localhost:9980/miner/submitheader"
 var intensity = 22
+var devicesTypesForMining = cl.DeviceTypeGPU
 
 func loadCLProgramSource() (sources []string) {
 	filename := "sia-gpu-miner.cl"
@@ -241,6 +244,13 @@ func mine(clDevice *cl.Device, minerID int) {
 }
 
 func main() {
+	useCPU := flag.Bool("cpu", false, "If set, also use the CPU for mining, only GPU's are used by default")
+
+	flag.Parse()
+
+	if *useCPU {
+		devicesTypesForMining = cl.DeviceTypeAll
+	}
 
 	platforms, err := cl.GetPlatforms()
 	if err != nil {
@@ -250,20 +260,19 @@ func main() {
 	clDevices := make([]*cl.Device, 0, 4)
 	for _, platform := range platforms {
 		log.Println("Platform", platform.Name())
-		platormDevices, err := cl.GetDevices(platform, cl.DeviceTypeAll)
+		platormDevices, err := cl.GetDevices(platform, devicesTypesForMining)
 		if err != nil {
-			log.Panic(err)
+			log.Println(err)
 		}
 		log.Println(len(platormDevices), "device(s) found:")
 		for i, device := range platormDevices {
-			log.Println(i, "-", device.Type(), "-", device.Name(), "- Compiler Available: ", device.CompilerAvailable())
-			log.Println(i, "- Max work dimensions", device.MaxWorkItemDimensions())
-			log.Println(i, "- Max work item sizes", device.MaxWorkItemSizes())
-			log.Println(i, "- OpenCL C Version", device.OpenCLCVersion())
-			log.Println(i, "- Max Work Group Size", device.MaxWorkGroupSize())
-			//TODO: filter devices on type
+			log.Println(i, "-", device.Type(), "-", device.Name())
 			clDevices = append(clDevices, device)
 		}
+	}
+	if len(clDevices) == 0 {
+		log.Println("No suitable opencl devices found")
+		os.Exit(1)
 	}
 
 	for i, device := range clDevices {
