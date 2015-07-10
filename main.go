@@ -245,6 +245,7 @@ func mine(clDevice *cl.Device, minerID int) {
 
 func main() {
 	useCPU := flag.Bool("cpu", false, "If set, also use the CPU for mining, only GPU's are used by default")
+	flag.IntVar(&intensity, "I", intensity, "Intensity")
 
 	flag.Parse()
 
