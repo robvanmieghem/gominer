@@ -289,8 +289,11 @@ func main() {
 		report := <-hashRateReportsChannel
 		hashRateReports[report.MinerID] = report.HashRate
 		fmt.Print("\r")
+		var totalHashRate float64
 		for minerID, hashrate := range hashRateReports {
-			fmt.Printf("%d - Mining at %.3f MH/s |", minerID, hashrate)
+			fmt.Printf("%d - Mining at %.3f MH/s | ", minerID, hashrate)
+			totalHashRate += hashrate
 		}
+		fmt.Printf("Total: %.3f MH/s", totalHashRate)
 	}
 }
