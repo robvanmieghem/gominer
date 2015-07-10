@@ -94,6 +94,7 @@ __kernel void nonceGrind(__global ulong *headerIn, __global ulong *nonceOut) {
 var getworkurl = "http://localhost:9980/miner/headerforwork"
 var submitblockurl = "http://localhost:9980/miner/submitheader"
 var intensity = 22
+var globalItemSize int
 var devicesTypesForMining = cl.DeviceTypeGPU
 
 func loadCLProgramSource() (sources []string) {
@@ -141,7 +142,32 @@ type HashRateReport struct {
 	HashRate float64
 }
 
-func mine(clDevice *cl.Device, minerID int, hashRateReports chan *HashRateReport) {
+//MiningWork is sent to the mining routines and defines what ranges should be searched for a matching nonce
+type MiningWork struct {
+	Header []byte
+	Offset int
+}
+
+func createWork(miningWorkChannel chan *MiningWork, nrOfWorkItemsPerRequestedHeader int) {
+	for {
+		target, header, err := getHeaderForWork()
+		if err != nil {
+			log.Println("ERROR fetching work -", err)
+			time.Sleep(1)
+			continue
+		}
+		//copy target to header
+		for i := 0; i < 8; i++ {
+			header[i+32] = target[7-i]
+		}
+
+		for i := 0; i < nrOfWorkItemsPerRequestedHeader; i++ {
+			miningWorkChannel <- &MiningWork{header, i * globalItemSize}
+		}
+	}
+}
+
+func mine(clDevice *cl.Device, minerID int, hashRateReports chan *HashRateReport, miningWorkChannel chan *MiningWork) {
 	log.Println(minerID, "- Initializing", clDevice.Type(), "-", clDevice.Name())
 
 	context, err := cl.CreateContext([]*cl.Device{clDevice})
@@ -192,7 +218,6 @@ func mine(clDevice *cl.Device, minerID int, hashRateReports chan *HashRateReport
 		log.Fatalln(minerID, "- WorkGroupSize failed -", err)
 	}
 
-	globalItemSize := int(math.Exp2(float64(intensity)))
 	log.Println(minerID, "- Global item size:", globalItemSize, "(Intensity", intensity, ")", "- Local item size:", localItemSize)
 
 	log.Println(minerID, "- Started mining on", clDevice.Type(), "-", clDevice.Name())
@@ -200,19 +225,10 @@ func mine(clDevice *cl.Device, minerID int, hashRateReports chan *HashRateReport
 	for {
 		start := time.Now()
 
-		target, header, err := getHeaderForWork()
-		if err != nil {
-			log.Println(minerID, "- ERROR ", err)
-			continue
-		}
-		//copy target to header
-		for i := 0; i < 8; i++ {
-			header[i+32] = target[7-i]
-		}
-		//TODO: offset
+		work := <-miningWorkChannel
 
 		//Copy input to kernel args
-		if _, err = commandQueue.EnqueueWriteBufferByte(blockHeaderObj, true, 0, header, nil); err != nil {
+		if _, err = commandQueue.EnqueueWriteBufferByte(blockHeaderObj, true, 0, work.Header, nil); err != nil {
 			log.Fatalln(minerID, "-", err)
 		}
 
@@ -222,8 +238,7 @@ func mine(clDevice *cl.Device, minerID int, hashRateReports chan *HashRateReport
 		}
 
 		//Run the kernel
-		//globalIDOffset := globalItemSize
-		if _, err = commandQueue.EnqueueNDRangeKernel(kernel, nil, []int{globalItemSize}, []int{localItemSize}, nil); err != nil {
+		if _, err = commandQueue.EnqueueNDRangeKernel(kernel, []int{work.Offset}, []int{globalItemSize}, []int{localItemSize}, nil); err != nil {
 			log.Fatalln(minerID, "-", err)
 		}
 		//Get output
@@ -233,7 +248,8 @@ func mine(clDevice *cl.Device, minerID int, hashRateReports chan *HashRateReport
 		//Check if match found
 		if nonceOut[0] != 0 {
 			log.Println(minerID, "-", "Yay, block found!")
-			// Copy nonce to header.
+			// Copy nonce to a new header.
+			header := append([]byte(nil), work.Header...)
 			for i := 0; i < 8; i++ {
 				header[i+32] = nonceOut[i]
 			}
@@ -257,6 +273,7 @@ func main() {
 	if *useCPU {
 		devicesTypesForMining = cl.DeviceTypeAll
 	}
+	globalItemSize = int(math.Exp2(float64(intensity)))
 
 	platforms, err := cl.GetPlatforms()
 	if err != nil {
@@ -276,15 +293,25 @@ func main() {
 			clDevices = append(clDevices, device)
 		}
 	}
-	if len(clDevices) == 0 {
+
+	nrOfMiningDevices := len(clDevices)
+
+	if nrOfMiningDevices == 0 {
 		log.Println("No suitable opencl devices found")
 		os.Exit(1)
 	}
-	var hashRateReportsChannel = make(chan *HashRateReport, len(clDevices)*10)
+
+	//Fetch work
+	workChannel := make(chan *MiningWork, nrOfMiningDevices*4)
+	go createWork(workChannel, nrOfMiningDevices*2)
+
+	//Start mining routines
+	var hashRateReportsChannel = make(chan *HashRateReport, nrOfMiningDevices*10)
 	for i, device := range clDevices {
-		go mine(device, i, hashRateReportsChannel)
+		go mine(device, i, hashRateReportsChannel, workChannel)
 	}
-	hashRateReports := make([]float64, len(clDevices))
+
+	hashRateReports := make([]float64, nrOfMiningDevices)
 	for {
 		report := <-hashRateReportsChannel
 		hashRateReports[report.MinerID] = report.HashRate
