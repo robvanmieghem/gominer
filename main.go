@@ -135,7 +135,13 @@ func submitHeader(header []byte) (err error) {
 	return
 }
 
-func mine(clDevice *cl.Device, minerID int) {
+//HashRateReport is sent to from the mining routines to the main routine for giving combined information as output
+type HashRateReport struct {
+	MinerID  int
+	HashRate float64
+}
+
+func mine(clDevice *cl.Device, minerID int, hashRateReports chan *HashRateReport) {
 	log.Println(minerID, "- Initializing", clDevice.Type(), "-", clDevice.Name())
 
 	context, err := cl.CreateContext([]*cl.Device{clDevice})
@@ -187,7 +193,7 @@ func mine(clDevice *cl.Device, minerID int) {
 	}
 
 	globalItemSize := int(math.Exp2(float64(intensity)))
-	log.Println(minerID, "- global item size:", globalItemSize, "- local item size:", localItemSize)
+	log.Println(minerID, "- Global item size:", globalItemSize, "(Intensity", intensity, ")", "- Local item size:", localItemSize)
 
 	log.Println(minerID, "- Started mining on", clDevice.Type(), "-", clDevice.Name())
 
@@ -237,8 +243,7 @@ func mine(clDevice *cl.Device, minerID int) {
 		}
 
 		hashRate := float64(globalItemSize) / (time.Since(start).Seconds() * 1000000)
-		fmt.Printf("\r%d - Mining at %.3f MH/s", minerID, hashRate)
-
+		hashRateReports <- &HashRateReport{minerID, hashRate}
 	}
 
 }
@@ -275,11 +280,17 @@ func main() {
 		log.Println("No suitable opencl devices found")
 		os.Exit(1)
 	}
-
+	var hashRateReportsChannel = make(chan *HashRateReport, len(clDevices)*10)
 	for i, device := range clDevices {
-		go mine(device, i)
+		go mine(device, i, hashRateReportsChannel)
 	}
-
-	var input string
-	fmt.Scanln(&input)
+	hashRateReports := make([]float64, len(clDevices))
+	for {
+		report := <-hashRateReportsChannel
+		hashRateReports[report.MinerID] = report.HashRate
+		fmt.Print("\r")
+		for minerID, hashrate := range hashRateReports {
+			fmt.Printf("%d - Mining at %.3f MH/s |", minerID, hashrate)
+		}
+	}
 }
