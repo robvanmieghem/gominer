@@ -1,13 +1,16 @@
 # gominer
 GPU miner for siacoin in go
 
+## Prerequisites
+* go version 1.4.2 (earlier version might work or not), check with `go version`
+* opencl libraries on the library path
 
-Installation:
+## Installation
 ```
 go get github.com/robvanmieghem/gominer
 ```
 
-Run:
+## Run
 ```
 gominer
 ```
