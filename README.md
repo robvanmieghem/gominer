@@ -12,7 +12,7 @@ Run:
 gominer
 ```
 
-It is adivised to increase the intensity to 28 or something for decent GPU's:
+It is advised to increase the intensity to 28 or something for decent GPU's:
 ```
 gominer -I=28
 ```
