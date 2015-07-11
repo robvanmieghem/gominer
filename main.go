@@ -71,7 +71,7 @@ func main() {
 		os.Exit(1)
 	}
 
-	//Fetch work
+	//Start fetching work
 	workChannel := make(chan *MiningWork, nrOfMiningDevices*4)
 	go createWork(workChannel, nrOfMiningDevices*2)
 
