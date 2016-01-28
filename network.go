@@ -2,8 +2,8 @@ package main
 
 import (
 	"bytes"
-	"errors"
-	"io"
+	"fmt"
+	"io/ioutil"
 	"net/http"
 )
 
@@ -20,20 +20,19 @@ func getHeaderForWork() (target, header []byte, err error) {
 
 	req.Header.Add("User-Agent", "Sia-Agent")
 	resp, err := client.Do(req)
-
 	if err != nil {
 		return
 	}
 	defer resp.Body.Close()
-	buf := make([]byte, 113)
-	n, err := resp.Body.Read(buf)
-	if err != nil && err != io.EOF {
+
+	buf, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
 		return
 	}
-	if n < 112 {
-		err = errors.New("Invalid response")
-	} else {
-		err = nil
+
+	if len(buf) < 112 {
+		err = fmt.Errorf("Invalid response, only received %d bytes, is your wallet initialized and unlocked?", len(buf))
+		return
 	}
 
 	target = buf[:32]
