@@ -91,6 +91,6 @@ func main() {
 			fmt.Printf("%d - Mining at %.3f MH/s | ", minerID, hashrate)
 			totalHashRate += hashrate
 		}
-		fmt.Printf("Total: %.3f MH/s", totalHashRate)
+		fmt.Printf("Total: %.3f MH/s  ", totalHashRate)
 	}
 }
