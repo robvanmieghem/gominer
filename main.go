@@ -83,8 +83,10 @@ func main() {
 
 	hashRateReports := make([]float64, nrOfMiningDevices)
 	for {
-		report := <-hashRateReportsChannel
-		hashRateReports[report.MinerID] = report.HashRate
+		for i := 0; i < nrOfMiningDevices; i++ {
+			report := <-hashRateReportsChannel
+			hashRateReports[report.MinerID] = report.HashRate
+		}
 		fmt.Print("\r")
 		var totalHashRate float64
 		for minerID, hashrate := range hashRateReports {
@@ -92,5 +94,6 @@ func main() {
 			totalHashRate += hashrate
 		}
 		fmt.Printf("Total: %.1f MH/s  ", totalHashRate)
+
 	}
 }
