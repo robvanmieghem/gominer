@@ -88,9 +88,9 @@ func main() {
 		fmt.Print("\r")
 		var totalHashRate float64
 		for minerID, hashrate := range hashRateReports {
-			fmt.Printf("%d - Mining at %.3f MH/s | ", minerID, hashrate)
+			fmt.Printf("%d-%.1f ", minerID, hashrate)
 			totalHashRate += hashrate
 		}
-		fmt.Printf("Total: %.3f MH/s  ", totalHashRate)
+		fmt.Printf("Total: %.1f MH/s  ", totalHashRate)
 	}
 }
