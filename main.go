@@ -11,7 +11,10 @@ import (
 	"github.com/robvanmieghem/go-opencl/cl"
 )
 
-var intensity = 22
+//Version is the released version string of gominer
+var Version = "0.3-Dev"
+
+var intensity = 28
 var globalItemSize int
 var devicesTypesForMining = cl.DeviceTypeGPU
 
@@ -35,10 +38,16 @@ func createWork(miningWorkChannel chan *MiningWork, nrOfWorkItemsPerRequestedHea
 }
 
 func main() {
+	printVersion := flag.Bool("v", false, "Show version and exit")
 	useCPU := flag.Bool("cpu", false, "If set, also use the CPU for mining, only GPU's are used by default")
 	flag.IntVar(&intensity, "I", intensity, "Intensity")
 
 	flag.Parse()
+
+	if *printVersion {
+		fmt.Println("gominer version", Version)
+		os.Exit(0)
+	}
 
 	if *useCPU {
 		devicesTypesForMining = cl.DeviceTypeAll
@@ -83,6 +92,7 @@ func main() {
 
 	hashRateReports := make([]float64, nrOfMiningDevices)
 	for {
+		//No need to print at every hashreport, we have time
 		for i := 0; i < nrOfMiningDevices; i++ {
 			report := <-hashRateReportsChannel
 			hashRateReports[report.MinerID] = report.HashRate
