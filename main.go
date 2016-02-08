@@ -23,7 +23,7 @@ func createWork(miningWorkChannel chan *MiningWork, nrOfWorkItemsPerRequestedHea
 		target, header, err := getHeaderForWork()
 		if err != nil {
 			log.Println("ERROR fetching work -", err)
-			time.Sleep(1)
+			time.Sleep(1000 * time.Millisecond)
 			continue
 		}
 		//copy target to header

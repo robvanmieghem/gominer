@@ -24,14 +24,22 @@ func getHeaderForWork() (target, header []byte, err error) {
 		return
 	}
 	defer resp.Body.Close()
-
+	switch resp.StatusCode {
+	case 200:
+	case 400:
+		err = fmt.Errorf("Invalid siad response, status code %d, is your wallet initialized and unlocked?", resp.StatusCode)
+		return
+	default:
+		err = fmt.Errorf("Invalid siad, status code %d", resp.StatusCode)
+		return
+	}
 	buf, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
 		return
 	}
 
 	if len(buf) < 112 {
-		err = fmt.Errorf("Invalid response, only received %d bytes, is your wallet initialized and unlocked?", len(buf))
+		err = fmt.Errorf("Invalid siad response, only received %d bytes, is your wallet initialized and unlocked?", len(buf))
 		return
 	}
 
