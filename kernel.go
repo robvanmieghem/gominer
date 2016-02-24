@@ -1,7 +1,17 @@
 package main
 
 const kernelSource = `
-static inline ulong rotr64( __const ulong w, __const unsigned c ) { return ( w >> c ) | ( w << ( 64 - c ) ); }
+
+inline static uint2 ror64(const uint2 x, const uint y)
+{
+    return (uint2)(((x).x>>y)^((x).y<<(32-y)),((x).y>>y)^((x).x<<(32-y)));
+}
+
+inline static uint2 ror64_2(const uint2 x, const uint y)
+{
+    return (uint2)(((x).y>>(y-32))^((x).x<<(64-y)),((x).x>>(y-32))^((x).y<<(64-y)));
+}
+
 
 __constant static const uchar blake2b_sigma[12][16] = {
 	{ 0,  1,  2,  3,  4,  5,  6,  7,  8,  9,  10, 11, 12, 13, 14, 15 } ,
@@ -34,14 +44,15 @@ __kernel void nonceGrind(__global ulong *headerIn, __global ulong *nonceOut) {
 
 
 #define G(r,i,a,b,c,d) \
-	a = a + b + m[blake2b_sigma[r][2*i]]; \
-	d = rotr64(d ^ a, 32); \
+	a = a + b + m[ blake2b_sigma[r][2*i] ]; \
+	((uint2*)&d)[0] = ((uint2*)&d)[0].yx ^ ((uint2*)&a)[0].yx; \
 	c = c + d; \
-	b = rotr64(b ^ c, 24); \
-	a = a + b + m[blake2b_sigma[r][2*i+1]]; \
-	d = rotr64(d ^ a, 16); \
+	((uint2*)&b)[0] = ror64( ((uint2*)&b)[0] ^ ((uint2*)&c)[0], 24U); \
+	a = a + b + m[ blake2b_sigma[r][2*i+1] ]; \
+	((uint2*)&d)[0] = ror64( ((uint2*)&d)[0] ^ ((uint2*)&a)[0], 16U); \
 	c = c + d; \
-	b = rotr64(b ^ c, 63);
+    ((uint2*)&b)[0] = ror64_2( ((uint2*)&b)[0] ^ ((uint2*)&c)[0], 63U);
+
 
 #define ROUND(r)                    \
 	G(r,0,v[ 0],v[ 4],v[ 8],v[12]); \
