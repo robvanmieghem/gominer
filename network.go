@@ -7,13 +7,24 @@ import (
 	"net/http"
 )
 
-var getworkurl = "http://localhost:9980/miner/headerforwork"
-var submitblockurl = "http://localhost:9980/miner/submitheader"
+// SiadClient is used to connect to siad
+type SiadClient struct {
+	getworkurl     string
+	submitblockurl string
+}
 
-func getHeaderForWork() (target, header []byte, err error) {
+// NewSiadClient creates a new SiadClient given a 'host:port' connectionstring
+func NewSiadClient(connectionstring string) *SiadClient {
+	s := SiadClient{}
+	s.getworkurl = "http://" + connectionstring + "/miner/headerforwork"
+	s.submitblockurl = "http://" + connectionstring + "/miner/submitheader"
+	return &s
+}
+
+func (sc *SiadClient) getHeaderForWork() (target, header []byte, err error) {
 	client := &http.Client{}
 
-	req, err := http.NewRequest("GET", getworkurl, nil)
+	req, err := http.NewRequest("GET", sc.getworkurl, nil)
 	if err != nil {
 		return
 	}
@@ -49,8 +60,8 @@ func getHeaderForWork() (target, header []byte, err error) {
 	return
 }
 
-func submitHeader(header []byte) (err error) {
-	req, err := http.NewRequest("POST", submitblockurl, bytes.NewReader(header))
+func (sc *SiadClient) submitHeader(header []byte) (err error) {
+	req, err := http.NewRequest("POST", sc.submitblockurl, bytes.NewReader(header))
 	if err != nil {
 		return
 	}

@@ -18,9 +18,9 @@ var intensity = 28
 var globalItemSize int
 var devicesTypesForMining = cl.DeviceTypeGPU
 
-func createWork(miningWorkChannel chan *MiningWork, nrOfWorkItemsPerRequestedHeader int) {
+func createWork(siad *SiadClient, miningWorkChannel chan *MiningWork, nrOfWorkItemsPerRequestedHeader int) {
 	for {
-		target, header, err := getHeaderForWork()
+		target, header, err := siad.getHeaderForWork()
 		if err != nil {
 			log.Println("ERROR fetching work -", err)
 			time.Sleep(1000 * time.Millisecond)
@@ -41,13 +41,15 @@ func main() {
 	printVersion := flag.Bool("v", false, "Show version and exit")
 	useCPU := flag.Bool("cpu", false, "If set, also use the CPU for mining, only GPU's are used by default")
 	flag.IntVar(&intensity, "I", intensity, "Intensity")
-
+	siadHost := flag.String("H", "localhost:9980", "siad host and port")
 	flag.Parse()
 
 	if *printVersion {
 		fmt.Println("gominer version", Version)
 		os.Exit(0)
 	}
+
+	siad := NewSiadClient(*siadHost)
 
 	if *useCPU {
 		devicesTypesForMining = cl.DeviceTypeAll
@@ -82,12 +84,19 @@ func main() {
 
 	//Start fetching work
 	workChannel := make(chan *MiningWork, nrOfMiningDevices*4)
-	go createWork(workChannel, nrOfMiningDevices*2)
+	go createWork(siad, workChannel, nrOfMiningDevices*2)
 
 	//Start mining routines
 	var hashRateReportsChannel = make(chan *HashRateReport, nrOfMiningDevices*10)
 	for i, device := range clDevices {
-		go mine(device, i, hashRateReportsChannel, workChannel)
+		miner := &Miner{
+			clDevice:          device,
+			minerID:           i,
+			hashRateReports:   hashRateReportsChannel,
+			miningWorkChannel: workChannel,
+			siad:              siad,
+		}
+		go miner.mine()
 	}
 
 	hashRateReports := make([]float64, nrOfMiningDevices)

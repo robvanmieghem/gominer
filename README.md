@@ -20,12 +20,15 @@ go get github.com/robvanmieghem/gominer
 gominer
 ```
 
-Commandline arguments with default values:
+Usage of ./gominer:
 ```
--I=28: Intensity
--cpu=false: If set, also use the CPU for mining, only GPU's are used by default
--v: Show version and exit
--h: Show help
+  -H string
+    	siad host and port (default "localhost:9980")
+  -I int
+    	Intensity (default 28)
+  -cpu
+    	If set, also use the CPU for mining, only GPU's are used by default
+  -v	Show version and exit
 ```
 
 See what intensity gives you the best hashrate.
