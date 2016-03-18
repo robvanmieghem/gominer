@@ -12,7 +12,7 @@ import (
 )
 
 //Version is the released version string of gominer
-var Version = "0.3-Dev"
+var Version = "0.4-Dev"
 
 var intensity = 28
 var globalItemSize int
