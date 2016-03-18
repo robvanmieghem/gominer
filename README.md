@@ -37,4 +37,6 @@ See what intensity gives you the best hashrate.
 
 If you really want to, you can support the go-miner development:
 
-SIA address: 79b9089439218734192db7016f07dc5a0e2a95e873992dd782a1e1306b2c44e116e1d8ded910
+SIA: 79b9089439218734192db7016f07dc5a0e2a95e873992dd782a1e1306b2c44e116e1d8ded910
+
+BTC: 3QrmVRLU2JZKHiLdATud2vvL9b376wbmKU
