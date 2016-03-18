@@ -20,7 +20,7 @@ go get github.com/robvanmieghem/gominer
 gominer
 ```
 
-Usage of ./gominer:
+Usage:
 ```
   -H string
     	siad host and port (default "localhost:9980")
@@ -35,7 +35,7 @@ See what intensity gives you the best hashrate.
 
 ## Support development
 
-If you really want to, you can support the go-miner development:
+If you really want to, you can support the gominer development:
 
 SIA: 79b9089439218734192db7016f07dc5a0e2a95e873992dd782a1e1306b2c44e116e1d8ded910
 
