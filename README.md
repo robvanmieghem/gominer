@@ -35,19 +35,19 @@ See what intensity gives you the best hashrate.
 
 ## FAQ
 
-- ** You have to help me set up mining SIA **
+- *You have to help me set up mining SIA*
 
   No I don't
 
-- ** Can you log in on my machine to configure my mining setup? **
+- *Can you log in on my machine to configure my mining setup?*
 
   No
 
-- ** ERROR fetching work - Get http://localhost:9980/miner/headerforwork: dial tcp 127.0.0.1:9980: connection refused **
+- *ERROR fetching work - Get http://localhost:9980/miner/headerforwork: dial tcp 127.0.0.1:9980: connection refused*
 
   Make sure `siad` is running
 
-- ** Is there a windows executable download? **
+- *Is there a windows executable download?*
 
   No: https://github.com/robvanmieghem/gominer/issues/5
 
