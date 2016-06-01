@@ -46,10 +46,22 @@ See what intensity gives you the best hashrate.
 - *ERROR fetching work - Get http://localhost:9980/miner/headerforwork: dial tcp 127.0.0.1:9980: connection refused*
 
   Make sure `siad` is running
+  
+- What is `siad`?
+
+  Check the sia documentation
+  
+- I don't know how to set up siad or the sia UI wallet, how do I do that?
+
+  Check the sia documentation.
 
 - *Is there a windows executable download?*
 
   No: https://github.com/robvanmieghem/gominer/issues/5
+  
+- I don't know how to get it working, can you help me please please please ?
+
+  Everyone has his price, make me an offer I can't refuse.
 
 ## Support development
 
