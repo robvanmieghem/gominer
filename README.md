@@ -35,14 +35,10 @@ See what intensity gives you the best hashrate.
 
 ## FAQ
 
-- *You have to help me set up mining SIA*
+- *Is there a windows executable download?*
 
-  No I don't
-
-- *Can you log in on my machine to configure my mining setup?*
-
-  No
-
+  No: https://github.com/robvanmieghem/gominer/issues/
+  
 - *ERROR fetching work - Get http://localhost:9980/miner/headerforwork: dial tcp 127.0.0.1:9980: connection refused*
 
   Make sure `siad` is running
@@ -54,10 +50,14 @@ See what intensity gives you the best hashrate.
 - I don't know how to set up siad or the sia UI wallet, how do I do that?
 
   Check the sia documentation.
+  
+- *You have to help me set up mining SIA*
 
-- *Is there a windows executable download?*
+  No I don't
 
-  No: https://github.com/robvanmieghem/gominer/issues/5
+- *Can you log in on my machine to configure my mining setup?*
+
+  No
   
 - I don't know how to get it working, can you help me?
   
