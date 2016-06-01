@@ -59,9 +59,13 @@ See what intensity gives you the best hashrate.
 
   No: https://github.com/robvanmieghem/gominer/issues/5
   
+- I don't know how to get it working, can you help me?
+  
+  I get this question at least once a day. Seriously, you can not expect me to set up and support everyone's mining equipment.
+  
 - I don't know how to get it working, can you help me please please please ?
 
-  Everyone has his price, make me an offer I can't refuse.
+  Everyone has his price, make me an offer I can't refuse so I don't have to continue answering `no` to this question.
 
 ## Support development
 
