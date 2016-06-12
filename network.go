@@ -9,22 +9,20 @@ import (
 
 // SiadClient is used to connect to siad
 type SiadClient struct {
-	getworkurl     string
-	submitblockurl string
+	siadurl string
 }
 
 // NewSiadClient creates a new SiadClient given a 'host:port' connectionstring
 func NewSiadClient(connectionstring string) *SiadClient {
 	s := SiadClient{}
-	s.getworkurl = "http://" + connectionstring + "/miner/headerforwork"
-	s.submitblockurl = "http://" + connectionstring + "/miner/submitheader"
+	s.siadurl = "http://" + connectionstring + "/miner/header"
 	return &s
 }
 
 func (sc *SiadClient) getHeaderForWork() (target, header []byte, err error) {
 	client := &http.Client{}
 
-	req, err := http.NewRequest("GET", sc.getworkurl, nil)
+	req, err := http.NewRequest("GET", sc.siadurl, nil)
 	if err != nil {
 		return
 	}
@@ -61,7 +59,7 @@ func (sc *SiadClient) getHeaderForWork() (target, header []byte, err error) {
 }
 
 func (sc *SiadClient) submitHeader(header []byte) (err error) {
-	req, err := http.NewRequest("POST", sc.submitblockurl, bytes.NewReader(header))
+	req, err := http.NewRequest("POST", sc.siadurl, bytes.NewReader(header))
 	if err != nil {
 		return
 	}
