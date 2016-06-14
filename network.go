@@ -39,7 +39,7 @@ func (sc *SiadClient) getHeaderForWork() (target, header []byte, err error) {
 		err = fmt.Errorf("Invalid siad response, status code %d, is your wallet initialized and unlocked?", resp.StatusCode)
 		return
 	default:
-		err = fmt.Errorf("Invalid siad, status code %d", resp.StatusCode)
+		err = fmt.Errorf("Invalid siad response, status code %d", resp.StatusCode)
 		return
 	}
 	buf, err := ioutil.ReadAll(resp.Body)
@@ -67,7 +67,15 @@ func (sc *SiadClient) submitHeader(header []byte) (err error) {
 	req.Header.Add("User-Agent", "Sia-Agent")
 
 	client := &http.Client{}
-	_, err = client.Do(req)
-
+	resp, err := client.Do(req)
+	if err != nil {
+		return
+	}
+	switch resp.StatusCode {
+	case 200:
+	default:
+		err = fmt.Errorf("Invalid siad response, status code %d", resp.StatusCode)
+		return
+	}
 	return
 }
