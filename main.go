@@ -15,12 +15,11 @@ import (
 var Version = "0.4-Dev"
 
 var intensity = 28
-var globalItemSize int
 var devicesTypesForMining = cl.DeviceTypeGPU
 
-func createWork(siad *SiadClient, miningWorkChannel chan *MiningWork, nrOfWorkItemsPerRequestedHeader int) {
+func createWork(siad *SiadClient, miningWorkChannel chan *MiningWork, nrOfWorkItemsPerRequestedHeader int, globalItemSize int) {
 	for {
-		target, header, err := siad.getHeaderForWork()
+		target, header, err := siad.GetHeaderForWork()
 		if err != nil {
 			log.Println("ERROR fetching work -", err)
 			time.Sleep(1000 * time.Millisecond)
@@ -54,7 +53,7 @@ func main() {
 	if *useCPU {
 		devicesTypesForMining = cl.DeviceTypeAll
 	}
-	globalItemSize = int(math.Exp2(float64(intensity)))
+	globalItemSize := int(math.Exp2(float64(intensity)))
 
 	platforms, err := cl.GetPlatforms()
 	if err != nil {
@@ -84,7 +83,7 @@ func main() {
 
 	//Start fetching work
 	workChannel := make(chan *MiningWork, nrOfMiningDevices*4)
-	go createWork(siad, workChannel, nrOfMiningDevices*2)
+	go createWork(siad, workChannel, nrOfMiningDevices*2, globalItemSize)
 
 	//Start mining routines
 	var hashRateReportsChannel = make(chan *HashRateReport, nrOfMiningDevices*10)
@@ -94,6 +93,7 @@ func main() {
 			minerID:           i,
 			hashRateReports:   hashRateReportsChannel,
 			miningWorkChannel: workChannel,
+			GlobalItemSize:    globalItemSize,
 			siad:              siad,
 		}
 		go miner.mine()

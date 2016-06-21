@@ -7,6 +7,12 @@ import (
 	"net/http"
 )
 
+//HeaderReporter defines the required method a SIA client or pool client should implement for miners to be able to report solved headers
+type HeaderReporter interface {
+	//SubmitHeader reports a solved header
+	SubmitHeader(header []byte) (err error)
+}
+
 // SiadClient is used to connect to siad
 type SiadClient struct {
 	siadurl string
@@ -19,7 +25,8 @@ func NewSiadClient(connectionstring string) *SiadClient {
 	return &s
 }
 
-func (sc *SiadClient) getHeaderForWork() (target, header []byte, err error) {
+//GetHeaderForWork fetches new work from the SIA daemon
+func (sc *SiadClient) GetHeaderForWork() (target, header []byte, err error) {
 	client := &http.Client{}
 
 	req, err := http.NewRequest("GET", sc.siadurl, nil)
@@ -58,7 +65,8 @@ func (sc *SiadClient) getHeaderForWork() (target, header []byte, err error) {
 	return
 }
 
-func (sc *SiadClient) submitHeader(header []byte) (err error) {
+//SubmitHeader reports a solved header to the SIA daemon
+func (sc *SiadClient) SubmitHeader(header []byte) (err error) {
 	req, err := http.NewRequest("POST", sc.siadurl, bytes.NewReader(header))
 	if err != nil {
 		return

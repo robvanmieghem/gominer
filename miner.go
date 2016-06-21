@@ -25,7 +25,8 @@ type Miner struct {
 	minerID           int
 	hashRateReports   chan *HashRateReport
 	miningWorkChannel chan *MiningWork
-	siad              *SiadClient
+	GlobalItemSize    int
+	siad              HeaderReporter
 }
 
 func (miner *Miner) mine() {
@@ -79,47 +80,67 @@ func (miner *Miner) mine() {
 		log.Fatalln(miner.minerID, "- WorkGroupSize failed -", err)
 	}
 
-	log.Println(miner.minerID, "- Global item size:", globalItemSize, "(Intensity", intensity, ")", "- Local item size:", localItemSize)
+	log.Println(miner.minerID, "- Global item size:", miner.GlobalItemSize, "(Intensity", intensity, ")", "- Local item size:", localItemSize)
 
 	log.Println(miner.minerID, "- Initialized ", miner.clDevice.Type(), "-", miner.clDevice.Name())
 
+	nonceOut := make([]byte, 8, 8)
+	if _, err = commandQueue.EnqueueWriteBufferByte(nonceOutObj, true, 0, nonceOut, nil); err != nil {
+		log.Fatalln(miner.minerID, "-", err)
+	}
 	for {
 		start := time.Now()
+		var work *MiningWork
+		continueMining := true
+		select {
+		case work, continueMining = <-miner.miningWorkChannel:
+		default:
+			log.Println(miner.minerID, "-", "No work ready")
+		}
 
-		work := <-miner.miningWorkChannel
-
+		if !continueMining {
+			log.Println("Halting miner ", miner.minerID)
+			break
+		}
 		//Copy input to kernel args
 		if _, err = commandQueue.EnqueueWriteBufferByte(blockHeaderObj, true, 0, work.Header, nil); err != nil {
 			log.Fatalln(miner.minerID, "-", err)
 		}
 
-		nonceOut := make([]byte, 8, 8) //TODO: get this out of the for loop
-		if _, err = commandQueue.EnqueueWriteBufferByte(nonceOutObj, true, 0, nonceOut, nil); err != nil {
-			log.Fatalln(miner.minerID, "-", err)
-		}
-
 		//Run the kernel
-		if _, err = commandQueue.EnqueueNDRangeKernel(kernel, []int{work.Offset}, []int{globalItemSize}, []int{localItemSize}, nil); err != nil {
+		if _, err = commandQueue.EnqueueNDRangeKernel(kernel, []int{work.Offset}, []int{miner.GlobalItemSize}, []int{localItemSize}, nil); err != nil {
 			log.Fatalln(miner.minerID, "-", err)
 		}
 		//Get output
 		if _, err = commandQueue.EnqueueReadBufferByte(nonceOutObj, true, 0, nonceOut, nil); err != nil {
-			log.Fatalln(miner.minerID, "_", err)
+			log.Fatalln(miner.minerID, "-", err)
 		}
 		//Check if match found
-		if nonceOut[0] != 0 {
+		if nonceOut[0] != 0 || nonceOut[1] != 0 || nonceOut[2] != 0 || nonceOut[3] != 0 || nonceOut[4] != 0 || nonceOut[5] != 0 || nonceOut[6] != 0 || nonceOut[7] != 0 {
 			log.Println(miner.minerID, "-", "Yay, block found!")
+			if nonceOut[0] == 0 {
+				log.Println(miner.minerID, "-", "Block found with a nonce that started with 0...")
+			}
 			// Copy nonce to a new header.
 			header := append([]byte(nil), work.Header...)
 			for i := 0; i < 8; i++ {
 				header[i+32] = nonceOut[i]
 			}
-			if err = miner.siad.submitHeader(header); err != nil {
+			if err = miner.siad.SubmitHeader(header); err != nil {
 				log.Println(miner.minerID, "- Error submitting block -", err)
+			}
+			log.Println("Work header:", work.Header)
+			log.Println("Offset:", work.Offset)
+			log.Println("Submitted header:", header)
+
+			//Clear the output since it is dirty now
+			nonceOut = make([]byte, 8, 8)
+			if _, err = commandQueue.EnqueueWriteBufferByte(nonceOutObj, true, 0, nonceOut, nil); err != nil {
+				log.Fatalln(miner.minerID, "-", err)
 			}
 		}
 
-		hashRate := float64(globalItemSize) / (time.Since(start).Seconds() * 1000000)
+		hashRate := float64(miner.GlobalItemSize) / (time.Since(start).Seconds() * 1000000)
 		miner.hashRateReports <- &HashRateReport{miner.minerID, hashRate}
 	}
 
