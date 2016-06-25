@@ -26,6 +26,8 @@ Usage:
     	siad host and port (default "localhost:9980")
   -I int
     	Intensity (default 28)
+  -E string
+        Exclude GPU's: comma separated list of devicenumbers
   -cpu
     	If set, also use the CPU for mining, only GPU's are used by default
   -v	Show version and exit
@@ -38,19 +40,19 @@ See what intensity gives you the best hashrate.
 - *Is there a windows executable download?*
 
   No: https://github.com/robvanmieghem/gominer/issues/
-  
+
 - *ERROR fetching work - Get http://localhost:9980/miner/headerforwork: dial tcp 127.0.0.1:9980: connection refused*
 
   Make sure `siad` is running
-  
+
 - What is `siad`?
 
   Check the sia documentation
-  
+
 - I don't know how to set up siad or the sia UI wallet, how do I do that?
 
   Check the sia documentation.
-  
+
 - *You have to help me set up mining SIA*
 
   No I don't
@@ -58,11 +60,11 @@ See what intensity gives you the best hashrate.
 - *Can you log in on my machine to configure my mining setup?*
 
   No
-  
+
 - I don't know how to get it working, can you help me?
-  
+
   I get this question at least once a day. Seriously, you can not expect me to set up and support everyone's mining equipment.
-  
+
 - I don't know how to get it working, can you help me please please please ?
 
   Everyone has his price, make me an offer I can't refuse so I don't have to continue answering `no` to this question.

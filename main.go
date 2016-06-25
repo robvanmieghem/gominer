@@ -6,13 +6,15 @@ import (
 	"log"
 	"math"
 	"os"
+	"strconv"
+	"strings"
 	"time"
 
 	"github.com/robvanmieghem/go-opencl/cl"
 )
 
 //Version is the released version string of gominer
-var Version = "0.4-Dev"
+var Version = "0.5-Dev"
 
 var intensity = 28
 var devicesTypesForMining = cl.DeviceTypeGPU
@@ -41,6 +43,7 @@ func main() {
 	useCPU := flag.Bool("cpu", false, "If set, also use the CPU for mining, only GPU's are used by default")
 	flag.IntVar(&intensity, "I", intensity, "Intensity")
 	siadHost := flag.String("H", "localhost:9980", "siad host and port")
+	excludedGPUs := flag.String("E", "", "Exclude GPU's: comma separated list of devicenumbers")
 	flag.Parse()
 
 	if *printVersion {
@@ -88,6 +91,9 @@ func main() {
 	//Start mining routines
 	var hashRateReportsChannel = make(chan *HashRateReport, nrOfMiningDevices*10)
 	for i, device := range clDevices {
+		if deviceExcludedForMining(i, *excludedGPUs) {
+			continue
+		}
 		miner := &Miner{
 			clDevice:          device,
 			minerID:           i,
@@ -115,4 +121,14 @@ func main() {
 		fmt.Printf("Total: %.1f MH/s  ", totalHashRate)
 
 	}
+}
+
+func deviceExcludedForMining(deviceID int, excludedGPUs string) bool {
+	excludedGPUList := strings.Split(excludedGPUs, ",")
+	for _, excludedGPU := range excludedGPUList {
+		if strconv.Itoa(deviceID) == excludedGPU {
+			return true
+		}
+	}
+	return false
 }

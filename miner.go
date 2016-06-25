@@ -7,7 +7,7 @@ import (
 	"github.com/robvanmieghem/go-opencl/cl"
 )
 
-//HashRateReport is sent to from the mining routines for giving combined information as output
+//HashRateReport is sent from the mining routines for giving combined information as output
 type HashRateReport struct {
 	MinerID  int
 	HashRate float64
