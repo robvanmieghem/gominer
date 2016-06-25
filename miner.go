@@ -88,20 +88,22 @@ func (miner *Miner) mine() {
 	if _, err = commandQueue.EnqueueWriteBufferByte(nonceOutObj, true, 0, nonceOut, nil); err != nil {
 		log.Fatalln(miner.minerID, "-", err)
 	}
+miningloop:
 	for {
 		start := time.Now()
 		var work *MiningWork
 		continueMining := true
 		select {
 		case work, continueMining = <-miner.miningWorkChannel:
+			if !continueMining {
+				log.Println("Halting miner ", miner.minerID)
+				break miningloop
+			}
 		default:
 			log.Println(miner.minerID, "-", "No work ready")
+			continue
 		}
 
-		if !continueMining {
-			log.Println("Halting miner ", miner.minerID)
-			break
-		}
 		//Copy input to kernel args
 		if _, err = commandQueue.EnqueueWriteBufferByte(blockHeaderObj, true, 0, work.Header, nil); err != nil {
 			log.Fatalln(miner.minerID, "-", err)
