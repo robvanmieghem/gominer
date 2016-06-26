@@ -19,9 +19,14 @@ var Version = "0.5-Dev"
 var intensity = 28
 var devicesTypesForMining = cl.DeviceTypeGPU
 
-func createWork(siad *SiadClient, miningWorkChannel chan *MiningWork, nrOfWorkItemsPerRequestedHeader int, globalItemSize int) {
+const maxUint = ^uint(0)
+const maxInt = int(maxUint >> 1)
+
+func createWork(siad *SiadClient, miningWorkChannel chan *MiningWork, secondsOfWorkPerRequestedHeader int, globalItemSize int) {
 	for {
+		timeBeforeGettingWork := time.Now()
 		target, header, err := siad.GetHeaderForWork()
+
 		if err != nil {
 			log.Println("ERROR fetching work -", err)
 			time.Sleep(1000 * time.Millisecond)
@@ -31,9 +36,17 @@ func createWork(siad *SiadClient, miningWorkChannel chan *MiningWork, nrOfWorkIt
 		for i := 0; i < 8; i++ {
 			header[i+32] = target[7-i]
 		}
-
-		for i := 0; i < nrOfWorkItemsPerRequestedHeader; i++ {
-			miningWorkChannel <- &MiningWork{header, i * globalItemSize}
+		//Fill the workchannel with work for the requested number of secondsOfWorkPerRequestedHeader
+		// If the GetHeaderForWork call took too long, it might be that no work is generated at all
+		for i := 0; i*globalItemSize < (maxInt - globalItemSize); i++ {
+			if time.Since(timeBeforeGettingWork) < time.Second*time.Duration(secondsOfWorkPerRequestedHeader) {
+				miningWorkChannel <- &MiningWork{header, i * globalItemSize}
+			} else {
+				if i == 0 {
+					log.Println("ERROR: Getting work took longer then", secondsOfWorkPerRequestedHeader, "seconds - No work generated")
+				}
+				break
+			}
 		}
 	}
 }
@@ -43,6 +56,7 @@ func main() {
 	useCPU := flag.Bool("cpu", false, "If set, also use the CPU for mining, only GPU's are used by default")
 	flag.IntVar(&intensity, "I", intensity, "Intensity")
 	siadHost := flag.String("H", "localhost:9980", "siad host and port")
+	secondsOfWorkPerRequestedHeader := flag.Int("S", 10, "Time between calls to siad")
 	excludedGPUs := flag.String("E", "", "Exclude GPU's: comma separated list of devicenumbers")
 	flag.Parse()
 
@@ -86,7 +100,7 @@ func main() {
 
 	//Start fetching work
 	workChannel := make(chan *MiningWork, nrOfMiningDevices*4)
-	go createWork(siad, workChannel, nrOfMiningDevices*2, globalItemSize)
+	go createWork(siad, workChannel, *secondsOfWorkPerRequestedHeader, globalItemSize)
 
 	//Start mining routines
 	var hashRateReportsChannel = make(chan *HashRateReport, nrOfMiningDevices*10)

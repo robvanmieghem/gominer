@@ -27,6 +27,11 @@ func TestExcludedDevices(t *testing.T) {
 			excludedGPUs: "2,3",
 			excluded:     false,
 		},
+		{
+			deviceID:     1,
+			excludedGPUs: "0",
+			excluded:     false,
+		},
 	}
 	for _, test := range testSet {
 		result := deviceExcludedForMining(test.deviceID, test.excludedGPUs)
