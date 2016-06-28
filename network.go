@@ -80,7 +80,7 @@ func (sc *SiadClient) SubmitHeader(header []byte) (err error) {
 		return
 	}
 	switch resp.StatusCode {
-	case 200:
+	case 204:
 	default:
 		err = fmt.Errorf("Invalid siad response, status code %d", resp.StatusCode)
 		return
