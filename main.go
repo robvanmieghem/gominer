@@ -119,6 +119,7 @@ func main() {
 		go miner.mine()
 	}
 
+	//Start printing out the hashrates of the different gpu's
 	hashRateReports := make([]float64, nrOfMiningDevices)
 	for {
 		//No need to print at every hashreport, we have time
@@ -137,6 +138,7 @@ func main() {
 	}
 }
 
+//deviceExcludedForMining checks if the device is in the exclusion list
 func deviceExcludedForMining(deviceID int, excludedGPUs string) bool {
 	excludedGPUList := strings.Split(excludedGPUs, ",")
 	for _, excludedGPU := range excludedGPUList {

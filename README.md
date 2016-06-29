@@ -37,10 +37,6 @@ See what intensity gives you the best hashrate.
 
 ## FAQ
 
-- *Is there a windows executable download?*
-
-  No: https://github.com/robvanmieghem/gominer/issues/
-
 - *ERROR fetching work - Get http://localhost:9980/miner/headerforwork: dial tcp 127.0.0.1:9980: connection refused*
 
   Make sure `siad` is running
