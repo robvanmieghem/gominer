@@ -51,6 +51,15 @@ func createWork(siad *SiadClient, miningWorkChannel chan *MiningWork, secondsOfW
 	}
 }
 
+func submitSolutions(siad HeaderReporter, solutionChannel chan []byte) {
+	for header := range solutionChannel {
+		if err := siad.SubmitHeader(header); err != nil {
+			log.Println("Error submitting solution -", err)
+		}
+		log.Println("Submitted header:", header)
+	}
+}
+
 func main() {
 	printVersion := flag.Bool("v", false, "Show version and exit")
 	useCPU := flag.Bool("cpu", false, "If set, also use the CPU for mining, only GPU's are used by default")
@@ -103,6 +112,9 @@ func main() {
 	workChannel := make(chan *MiningWork, nrOfMiningDevices*4)
 	go createWork(siad, workChannel, *secondsOfWorkPerRequestedHeader, globalItemSize)
 
+	solutionChannel := make(chan []byte, nrOfMiningDevices*4)
+	go submitSolutions(siad, solutionChannel)
+
 	//Start mining routines
 	var hashRateReportsChannel = make(chan *HashRateReport, nrOfMiningDevices*10)
 	for i, device := range clDevices {
@@ -114,8 +126,8 @@ func main() {
 			minerID:           i,
 			hashRateReports:   hashRateReportsChannel,
 			miningWorkChannel: workChannel,
+			solutionChannel:   solutionChannel,
 			GlobalItemSize:    globalItemSize,
-			siad:              siad,
 		}
 		go miner.mine()
 	}
