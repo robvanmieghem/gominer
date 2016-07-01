@@ -24,6 +24,8 @@ Usage:
 ```
   -H string
     	siad host and port (default "localhost:9980")
+  -Q string
+    	Query string
   -I int
     	Intensity (default 28)
   -E string
