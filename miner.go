@@ -23,6 +23,7 @@ type MiningWork struct {
 type Miner struct {
 	clDevice          *cl.Device
 	minerID           int
+	minerCount        int
 	hashRateReports   chan *HashRateReport
 	miningWorkChannel chan *MiningWork
 	solutionChannel   chan []byte
@@ -88,16 +89,20 @@ func (miner *Miner) mine() {
 	if _, err = commandQueue.EnqueueWriteBufferByte(nonceOutObj, true, 0, nonceOut, nil); err != nil {
 		log.Fatalln(miner.minerID, "-", err)
 	}
+	var work *MiningWork
 	for {
 		start := time.Now()
-		var work *MiningWork
 		continueMining := true
 		select {
 		case work, continueMining = <-miner.miningWorkChannel:
 		default:
-			log.Println(miner.minerID, "-", "No work ready")
-			work, continueMining = <-miner.miningWorkChannel
-			log.Println(miner.minerID, "-", "Continuing")
+			if work == nil {
+				log.Println(miner.minerID, "-", "No work ready")
+				work, continueMining = <-miner.miningWorkChannel
+				log.Println(miner.minerID, "-", "Continuing")
+			} else {
+				work.Offset += miner.GlobalItemSize * miner.minerCount
+			}
 		}
 		if !continueMining {
 			log.Println("Halting miner ", miner.minerID)

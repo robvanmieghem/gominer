@@ -22,7 +22,7 @@ var devicesTypesForMining = cl.DeviceTypeGPU
 const maxUint = ^uint(0)
 const maxInt = int(maxUint >> 1)
 
-func createWork(siad *SiadClient, miningWorkChannel chan *MiningWork, secondsOfWorkPerRequestedHeader int, globalItemSize int) {
+func createWork(siad *SiadClient, workChannels []chan *MiningWork, secondsOfWorkPerRequestedHeader int, globalItemSize int) {
 	for {
 		timeBeforeGettingWork := time.Now()
 		target, header, err := siad.GetHeaderForWork()
@@ -36,18 +36,15 @@ func createWork(siad *SiadClient, miningWorkChannel chan *MiningWork, secondsOfW
 		for i := 0; i < 8; i++ {
 			header[i+32] = target[7-i]
 		}
-		//Fill the workchannel with work for the requested number of secondsOfWorkPerRequestedHeader
-		// If the GetHeaderForWork call took too long, it might be that no work is generated at all
-		for i := 0; i*globalItemSize < (maxInt - globalItemSize); i++ {
-			if time.Since(timeBeforeGettingWork) < time.Second*time.Duration(secondsOfWorkPerRequestedHeader) {
-				miningWorkChannel <- &MiningWork{header, i * globalItemSize}
-			} else {
-				if i == 0 {
-					log.Println("ERROR: Getting work took longer then", secondsOfWorkPerRequestedHeader, "seconds - No work generated")
-				}
-				break
+		// Replace any old work with the new one
+		for i, c := range workChannels {
+			select {
+			case <-c:
+			default:
 			}
+			c <- &MiningWork{header, i * globalItemSize}
 		}
+		time.Sleep(time.Second*time.Duration(secondsOfWorkPerRequestedHeader) - time.Since(timeBeforeGettingWork))
 	}
 }
 
@@ -108,12 +105,10 @@ func main() {
 		os.Exit(1)
 	}
 
-	//Start fetching work
-	workChannel := make(chan *MiningWork, nrOfMiningDevices*4)
-	go createWork(siad, workChannel, *secondsOfWorkPerRequestedHeader, globalItemSize)
-
 	solutionChannel := make(chan []byte, nrOfMiningDevices*4)
 	go submitSolutions(siad, solutionChannel)
+
+	workChannels := make([]chan *MiningWork, 0)
 
 	//Start mining routines
 	var hashRateReportsChannel = make(chan *HashRateReport, nrOfMiningDevices*10)
@@ -121,9 +116,12 @@ func main() {
 		if deviceExcludedForMining(i, *excludedGPUs) {
 			continue
 		}
+		workChannel := make(chan *MiningWork, 1)
+		workChannels = append(workChannels, workChannel)
 		miner := &Miner{
 			clDevice:          device,
 			minerID:           i,
+			minerCount:        nrOfMiningDevices,
 			hashRateReports:   hashRateReportsChannel,
 			miningWorkChannel: workChannel,
 			solutionChannel:   solutionChannel,
@@ -131,6 +129,9 @@ func main() {
 		}
 		go miner.mine()
 	}
+
+	//Start fetching work
+	go createWork(siad, workChannels, *secondsOfWorkPerRequestedHeader, globalItemSize)
 
 	//Start printing out the hashrates of the different gpu's
 	hashRateReports := make([]float64, nrOfMiningDevices)
