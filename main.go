@@ -19,9 +19,6 @@ var Version = "0.5-Dev"
 var intensity = 28
 var devicesTypesForMining = cl.DeviceTypeGPU
 
-const maxUint = ^uint(0)
-const maxInt = int(maxUint >> 1)
-
 func createWork(siad *SiadClient, workChannels []chan *MiningWork, secondsOfWorkPerRequestedHeader int, globalItemSize int) {
 	for {
 		timeBeforeGettingWork := time.Now()
@@ -34,7 +31,7 @@ func createWork(siad *SiadClient, workChannels []chan *MiningWork, secondsOfWork
 		}
 		//copy target to header
 		for i := 0; i < 8; i++ {
-			header[i+32] = target[7-i]
+			header = append(header, target[7-i])
 		}
 		// Replace any old work with the new one
 		for i, c := range workChannels {
@@ -42,7 +39,7 @@ func createWork(siad *SiadClient, workChannels []chan *MiningWork, secondsOfWork
 			case <-c:
 			default:
 			}
-			c <- &MiningWork{header, i * globalItemSize}
+			c <- &MiningWork{header, uint64(i * globalItemSize)}
 		}
 		time.Sleep(time.Second*time.Duration(secondsOfWorkPerRequestedHeader) - time.Since(timeBeforeGettingWork))
 	}
