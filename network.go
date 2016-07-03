@@ -6,6 +6,8 @@ import (
 	"fmt"
 	"io/ioutil"
 	"net/http"
+	"strings"
+	"time"
 )
 
 //HeaderReporter defines the required method a SIA client or pool client should implement for miners to be able to report solved headers
@@ -17,6 +19,7 @@ type HeaderReporter interface {
 // SiadClient is used to connect to siad
 type SiadClient struct {
 	siadurl string
+	LongPollSupport bool
 }
 
 // NewSiadClient creates a new SiadClient given a 'host:port' connectionstring
@@ -39,10 +42,20 @@ func decodeMessage(resp *http.Response) (msg string, err error) {
 }
 
 //GetHeaderForWork fetches new work from the SIA daemon
-func (sc *SiadClient) GetHeaderForWork() (target, header []byte, err error) {
-	client := &http.Client{}
+func (sc *SiadClient) GetHeaderForWork(longpoll bool) (target, header []byte, err error) {
+	timeout := time.Second * 10
+	if longpoll {
+		timeout = time.Minute * 60
+	}
+	client := &http.Client{
+		Timeout: timeout,
+	}
 
-	req, err := http.NewRequest("GET", sc.siadurl, nil)
+	url := sc.siadurl
+	if longpoll {
+		url += "&longpoll"
+	}
+	req, err := http.NewRequest("GET", url, nil)
 	if err != nil {
 		return
 	}
@@ -50,6 +63,7 @@ func (sc *SiadClient) GetHeaderForWork() (target, header []byte, err error) {
 	req.Header.Add("User-Agent", "Sia-Agent")
 	resp, err := client.Do(req)
 	if err != nil {
+		sc.LongPollSupport = false
 		return
 	}
 	defer resp.Body.Close()
@@ -80,6 +94,11 @@ func (sc *SiadClient) GetHeaderForWork() (target, header []byte, err error) {
 	target = buf[:32]
 	header = buf[32:112]
 
+	xme := resp.Header.Get("X-Mining-Extensions")
+	if strings.Contains(xme, "longpoll") {
+		sc.LongPollSupport = true
+	}
+
 	return
 }
 
@@ -92,7 +111,9 @@ func (sc *SiadClient) SubmitHeader(header []byte) (err error) {
 
 	req.Header.Add("User-Agent", "Sia-Agent")
 
-	client := &http.Client{}
+	client := &http.Client{
+		Timeout: time.Second * 10,
+	}
 	resp, err := client.Do(req)
 	if err != nil {
 		return

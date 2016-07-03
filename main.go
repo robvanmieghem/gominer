@@ -19,20 +19,72 @@ var Version = "0.5-Dev"
 var intensity = 28
 var devicesTypesForMining = cl.DeviceTypeGPU
 
-func createWork(siad *SiadClient, workChannels []chan *MiningWork, secondsOfWorkPerRequestedHeader int, globalItemSize int) {
-	for {
-		timeBeforeGettingWork := time.Now()
-		target, header, err := siad.GetHeaderForWork()
-
-		if err != nil {
-			log.Println("ERROR fetching work -", err)
-			time.Sleep(1000 * time.Millisecond)
-			continue
-		}
+func getHeader(siad *SiadClient, longpoll bool) (header []byte, err error) {
+	target, header, err := siad.GetHeaderForWork(longpoll)
+	if err != nil {
+		log.Println("ERROR fetching work -", err)
+	} else {
 		//copy target to header
 		for i := 0; i < 8; i++ {
 			header = append(header, target[7-i])
 		}
+	}
+	return
+}
+
+func startLongPolling(siad *SiadClient) (c chan []byte) {
+	c = make(chan []byte)
+	go func () {
+		for {
+			header, err := getHeader(siad, true)
+			if err != nil {
+				break
+			}
+			c <- header
+		}
+		close(c)
+	} ()
+	return
+}
+
+func createWork(siad *SiadClient, workChannels []chan *MiningWork, secondsOfWorkPerRequestedHeader int, globalItemSize int) {
+	var timeOfLastWork time.Time
+	var longChan chan []byte
+
+	for {
+		var header []byte
+		var err error
+
+		waitDuration := time.Second * time.Duration(secondsOfWorkPerRequestedHeader)
+		// If long polling is enabled, request work less often
+		if longChan != nil {
+			waitDuration = time.Second * time.Duration(60)
+		}
+		if time.Since(timeOfLastWork) > waitDuration {
+			header, err = getHeader(siad, false)
+			if err != nil {
+				time.Sleep(3 * time.Second)
+				continue
+			}
+			log.Println("Fetched new work")
+		} else {
+			if siad.LongPollSupport && longChan == nil {
+				log.Println("Starting long polling")
+				longChan = startLongPolling(siad)
+			}
+			select {
+			case header = <-longChan:
+				if header == nil {
+					longChan = nil
+					continue
+				}
+				log.Println("Long polling pushed new work")
+			case <-time.After(waitDuration - time.Since(timeOfLastWork)):
+				continue
+			}
+		}
+		timeOfLastWork = time.Now()
+
 		// Replace any old work with the new one
 		for i, c := range workChannels {
 			select {
@@ -41,7 +93,6 @@ func createWork(siad *SiadClient, workChannels []chan *MiningWork, secondsOfWork
 			}
 			c <- &MiningWork{header, uint64(i * globalItemSize)}
 		}
-		time.Sleep(time.Second*time.Duration(secondsOfWorkPerRequestedHeader) - time.Since(timeBeforeGettingWork))
 	}
 }
 
