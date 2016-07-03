@@ -130,9 +130,9 @@ func (miner *Miner) mine() {
 		}
 		//Check if match found
 		if nonceOut[0] != 0 || nonceOut[1] != 0 || nonceOut[2] != 0 || nonceOut[3] != 0 || nonceOut[4] != 0 || nonceOut[5] != 0 || nonceOut[6] != 0 || nonceOut[7] != 0 {
-			log.Println(miner.minerID, "-", "Yay, block found!", "-", "Offset:", work.Offset)
+			log.Println(miner.minerID, "-", "Yay, solution found!", "-", "Offset:", work.Offset)
 			if nonceOut[0] == 0 {
-				log.Println(miner.minerID, "-", "Block found with a nonce that started with 0...")
+				log.Println(miner.minerID, "-", "Solution found with a nonce that started with 0...")
 			}
 			// Copy nonce to a new header.
 			header := append([]byte(nil), work.Header[:80]...)
