@@ -101,7 +101,7 @@ func (miner *Miner) mine() {
 				work, continueMining = <-miner.miningWorkChannel
 				log.Println(miner.minerID, "-", "Continuing")
 			} else {
-				work.Offset += uint64(miner.GlobalItemSize * miner.minerCount)
+				work.Offset += uint64(miner.GlobalItemSize) * uint64(miner.minerCount)
 			}
 		}
 		if !continueMining {
