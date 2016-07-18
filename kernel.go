@@ -27,12 +27,11 @@ __constant static const uchar blake2b_sigma[12][16] = {
 	{ 0,  1,  2,  3,  4,  5,  6,  7,  8,  9,  10, 11, 12, 13, 14, 15 } ,
 	{ 14, 10, 4,  8,  9,  15, 13, 6,  1,  12, 0,  2,  11, 7,  5,  3  } };
 
-// Target is passed in via headerIn[32 - 29]
 __kernel void nonceGrind(__global ulong *headerIn, __global ulong *nonceOut) {
-	ulong target = headerIn[4];
+	ulong target = headerIn[10];
 	ulong m[16] = {	headerIn[0], headerIn[1],
 	                headerIn[2], headerIn[3],
-	                (ulong)get_global_id(0), headerIn[5],
+	                headerIn[4] | ((ulong)get_global_id(0) & 0xffffffff), headerIn[5],
 	                headerIn[6], headerIn[7],
 	                headerIn[8], headerIn[9], 0, 0, 0, 0, 0, 0 };
 

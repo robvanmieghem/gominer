@@ -19,35 +19,89 @@ var Version = "0.5-Dev"
 var intensity = 28
 var devicesTypesForMining = cl.DeviceTypeGPU
 
-const maxUint = ^uint(0)
-const maxInt = int(maxUint >> 1)
-
-func createWork(siad *SiadClient, miningWorkChannel chan *MiningWork, secondsOfWorkPerRequestedHeader int, globalItemSize int) {
-	for {
-		timeBeforeGettingWork := time.Now()
-		target, header, err := siad.GetHeaderForWork()
-
-		if err != nil {
-			log.Println("ERROR fetching work -", err)
-			time.Sleep(1000 * time.Millisecond)
-			continue
-		}
+func getHeader(siad *SiadClient, longpoll bool) (header []byte, err error) {
+	target, header, err := siad.GetHeaderForWork(longpoll)
+	if err != nil {
+		log.Println("ERROR fetching work -", err)
+	} else {
 		//copy target to header
 		for i := 0; i < 8; i++ {
-			header[i+32] = target[7-i]
+			header = append(header, target[7-i])
 		}
-		//Fill the workchannel with work for the requested number of secondsOfWorkPerRequestedHeader
-		// If the GetHeaderForWork call took too long, it might be that no work is generated at all
-		for i := 0; i*globalItemSize < (maxInt - globalItemSize); i++ {
-			if time.Since(timeBeforeGettingWork) < time.Second*time.Duration(secondsOfWorkPerRequestedHeader) {
-				miningWorkChannel <- &MiningWork{header, i * globalItemSize}
-			} else {
-				if i == 0 {
-					log.Println("ERROR: Getting work took longer then", secondsOfWorkPerRequestedHeader, "seconds - No work generated")
-				}
+	}
+	return
+}
+
+func startLongPolling(siad *SiadClient) (c chan []byte) {
+	c = make(chan []byte)
+	go func () {
+		for {
+			header, err := getHeader(siad, true)
+			if err != nil {
 				break
 			}
+			c <- header
 		}
+		close(c)
+	} ()
+	return
+}
+
+func createWork(siad *SiadClient, workChannels []chan *MiningWork, secondsOfWorkPerRequestedHeader int, globalItemSize int) {
+	var timeOfLastWork time.Time
+	var longChan chan []byte
+
+	for {
+		var header []byte
+		var err error
+
+		waitDuration := time.Second * time.Duration(secondsOfWorkPerRequestedHeader)
+		// If long polling is enabled, request work less often
+		if longChan != nil {
+			waitDuration = time.Second * time.Duration(60)
+		}
+		if time.Since(timeOfLastWork) > waitDuration {
+			header, err = getHeader(siad, false)
+			if err != nil {
+				time.Sleep(3 * time.Second)
+				continue
+			}
+			log.Println("Fetched new work")
+		} else {
+			if siad.LongPollSupport && longChan == nil {
+				log.Println("Starting long polling")
+				longChan = startLongPolling(siad)
+			}
+			select {
+			case header = <-longChan:
+				if header == nil {
+					longChan = nil
+					continue
+				}
+				log.Println("Long polling pushed new work")
+			case <-time.After(waitDuration - time.Since(timeOfLastWork)):
+				continue
+			}
+		}
+		timeOfLastWork = time.Now()
+
+		// Replace any old work with the new one
+		for i, c := range workChannels {
+			select {
+			case <-c:
+			default:
+			}
+			c <- &MiningWork{append([]byte(nil), header...), uint64(i * globalItemSize)}
+		}
+	}
+}
+
+func submitSolutions(siad HeaderReporter, solutionChannel chan []byte) {
+	for header := range solutionChannel {
+		if err := siad.SubmitHeader(header); err != nil {
+			log.Println("Error submitting solution -", err)
+		}
+		log.Println("Submitted header:", header)
 	}
 }
 
@@ -58,6 +112,7 @@ func main() {
 	siadHost := flag.String("H", "localhost:9980", "siad host and port")
 	secondsOfWorkPerRequestedHeader := flag.Int("S", 10, "Time between calls to siad")
 	excludedGPUs := flag.String("E", "", "Exclude GPU's: comma separated list of devicenumbers")
+	queryString := flag.String("Q", "", "Query string")
 	flag.Parse()
 
 	if *printVersion {
@@ -65,7 +120,7 @@ func main() {
 		os.Exit(0)
 	}
 
-	siad := NewSiadClient(*siadHost)
+	siad := NewSiadClient(*siadHost, *queryString)
 
 	if *useCPU {
 		devicesTypesForMining = cl.DeviceTypeAll
@@ -76,6 +131,8 @@ func main() {
 	if err != nil {
 		log.Panic(err)
 	}
+
+	log.Printf("gominer, experimental version 0.3.1 by SiaMining.com")
 
 	clDevices := make([]*cl.Device, 0, 4)
 	for _, platform := range platforms {
@@ -98,9 +155,10 @@ func main() {
 		os.Exit(1)
 	}
 
-	//Start fetching work
-	workChannel := make(chan *MiningWork, nrOfMiningDevices*4)
-	go createWork(siad, workChannel, *secondsOfWorkPerRequestedHeader, globalItemSize)
+	solutionChannel := make(chan []byte, nrOfMiningDevices*4)
+	go submitSolutions(siad, solutionChannel)
+
+	workChannels := make([]chan *MiningWork, 0)
 
 	//Start mining routines
 	var hashRateReportsChannel = make(chan *HashRateReport, nrOfMiningDevices*10)
@@ -108,16 +166,22 @@ func main() {
 		if deviceExcludedForMining(i, *excludedGPUs) {
 			continue
 		}
+		workChannel := make(chan *MiningWork, 1)
+		workChannels = append(workChannels, workChannel)
 		miner := &Miner{
 			clDevice:          device,
 			minerID:           i,
+			minerCount:        nrOfMiningDevices,
 			hashRateReports:   hashRateReportsChannel,
 			miningWorkChannel: workChannel,
+			solutionChannel:   solutionChannel,
 			GlobalItemSize:    globalItemSize,
-			siad:              siad,
 		}
 		go miner.mine()
 	}
+
+	//Start fetching work
+	go createWork(siad, workChannels, *secondsOfWorkPerRequestedHeader, globalItemSize)
 
 	//Start printing out the hashrates of the different gpu's
 	hashRateReports := make([]float64, nrOfMiningDevices)
