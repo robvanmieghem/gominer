@@ -91,7 +91,7 @@ func createWork(siad *SiadClient, workChannels []chan *MiningWork, secondsOfWork
 			case <-c:
 			default:
 			}
-			c <- &MiningWork{header, uint64(i * globalItemSize)}
+			c <- &MiningWork{append([]byte(nil), header...), uint64(i * globalItemSize)}
 		}
 	}
 }
@@ -131,6 +131,8 @@ func main() {
 	if err != nil {
 		log.Panic(err)
 	}
+
+	log.Printf("gominer, experimental version 0.3.1 by SiaMining.com")
 
 	clDevices := make([]*cl.Device, 0, 4)
 	for _, platform := range platforms {
