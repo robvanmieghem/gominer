@@ -2,6 +2,7 @@ package main
 
 import (
 	"bytes"
+	"encoding/json"
 	"fmt"
 	"io/ioutil"
 	"net/http"
@@ -25,6 +26,18 @@ func NewSiadClient(connectionstring string) *SiadClient {
 	return &s
 }
 
+func decodeMessage(resp *http.Response) (msg string, err error) {
+	buf, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		return
+	}
+	var data struct{Message string `json:"message"`}
+	if err = json.Unmarshal(buf, &data); err == nil {
+		msg = data.Message
+	}
+	return
+}
+
 //GetHeaderForWork fetches new work from the SIA daemon
 func (sc *SiadClient) GetHeaderForWork() (target, header []byte, err error) {
 	client := &http.Client{}
@@ -43,10 +56,15 @@ func (sc *SiadClient) GetHeaderForWork() (target, header []byte, err error) {
 	switch resp.StatusCode {
 	case 200:
 	case 400:
-		err = fmt.Errorf("Invalid siad response, status code %d, is your wallet initialized and unlocked?", resp.StatusCode)
+		msg, errd := decodeMessage(resp)
+		if errd != nil {
+			err = fmt.Errorf("Status code %d", resp.StatusCode)
+		} else {
+			err = fmt.Errorf("Status code %d, message: %s", resp.StatusCode, msg)
+		}
 		return
 	default:
-		err = fmt.Errorf("Invalid siad response, status code %d", resp.StatusCode)
+		err = fmt.Errorf("Status code %d", resp.StatusCode)
 		return
 	}
 	buf, err := ioutil.ReadAll(resp.Body)
@@ -55,7 +73,7 @@ func (sc *SiadClient) GetHeaderForWork() (target, header []byte, err error) {
 	}
 
 	if len(buf) < 112 {
-		err = fmt.Errorf("Invalid siad response, only received %d bytes, is your wallet initialized and unlocked?", len(buf))
+		err = fmt.Errorf("Invalid response, only received %d bytes", len(buf))
 		return
 	}
 
@@ -82,7 +100,12 @@ func (sc *SiadClient) SubmitHeader(header []byte) (err error) {
 	switch resp.StatusCode {
 	case 204:
 	default:
-		err = fmt.Errorf("Invalid siad response, status code %d", resp.StatusCode)
+		msg, errd := decodeMessage(resp)
+		if errd != nil {
+			err = fmt.Errorf("Status code %d", resp.StatusCode)
+		} else {
+			err = fmt.Errorf("%s", msg)
+		}
 		return
 	}
 	return
