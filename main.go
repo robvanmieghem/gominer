@@ -58,6 +58,7 @@ func main() {
 	siadHost := flag.String("H", "localhost:9980", "siad host and port")
 	secondsOfWorkPerRequestedHeader := flag.Int("S", 10, "Time between calls to siad")
 	excludedGPUs := flag.String("E", "", "Exclude GPU's: comma separated list of devicenumbers")
+	queryString := flag.String("Q", "", "Query string")
 	flag.Parse()
 
 	if *printVersion {
@@ -65,7 +66,7 @@ func main() {
 		os.Exit(0)
 	}
 
-	siad := NewSiadClient(*siadHost)
+	siad := NewSiadClient(*siadHost, *queryString)
 
 	if *useCPU {
 		devicesTypesForMining = cl.DeviceTypeAll
