@@ -127,9 +127,11 @@ func (miner *Miner) mine() {
 			for i := 0; i < 8; i++ {
 				header[i+32] = nonceOut[i]
 			}
-			if err = miner.siad.SubmitHeader(header); err != nil {
-				log.Println(miner.minerID, "- Error submitting block -", err)
-			}
+			go func() {
+				if err := miner.siad.SubmitHeader(header); err != nil {
+					log.Println(miner.minerID, "- Error submitting block -", err)
+				}
+			}()
 			log.Println("Work header:", work.Header)
 			log.Println("Offset:", work.Offset)
 			log.Println("Submitted header:", header)
