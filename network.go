@@ -20,9 +20,9 @@ type SiadClient struct {
 }
 
 // NewSiadClient creates a new SiadClient given a 'host:port' connectionstring
-func NewSiadClient(connectionstring string) *SiadClient {
+func NewSiadClient(connectionstring string, querystring string) *SiadClient {
 	s := SiadClient{}
-	s.siadurl = "http://" + connectionstring + "/miner/header"
+	s.siadurl = "http://" + connectionstring + "/miner/header?" + querystring
 	return &s
 }
 
