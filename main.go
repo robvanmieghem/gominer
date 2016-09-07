@@ -19,9 +19,6 @@ var Version = "0.5-Dev"
 var intensity = 28
 var devicesTypesForMining = cl.DeviceTypeGPU
 
-const maxUint = ^uint(0)
-const maxInt = int(maxUint >> 1)
-
 func createWork(siad *SiadClient, miningWorkChannel chan *MiningWork, secondsOfWorkPerRequestedHeader int, globalItemSize int) {
 	for {
 		timeBeforeGettingWork := time.Now()
@@ -32,15 +29,15 @@ func createWork(siad *SiadClient, miningWorkChannel chan *MiningWork, secondsOfW
 			time.Sleep(1000 * time.Millisecond)
 			continue
 		}
-		//copy target to header
+		//append target to header
 		for i := 0; i < 8; i++ {
-			header[i+32] = target[7-i]
+			header = append(header, target[7-i])
 		}
 		//Fill the workchannel with work for the requested number of secondsOfWorkPerRequestedHeader
 		// If the GetHeaderForWork call took too long, it might be that no work is generated at all
-		for i := 0; i*globalItemSize < (maxInt - globalItemSize); i++ {
+		for i := uint64(0); ; i++ {
 			if time.Since(timeBeforeGettingWork) < time.Second*time.Duration(secondsOfWorkPerRequestedHeader) {
-				miningWorkChannel <- &MiningWork{header, i * globalItemSize}
+				miningWorkChannel <- &MiningWork{header, i * uint64(globalItemSize)}
 			} else {
 				if i == 0 {
 					log.Println("ERROR: Getting work took longer then", secondsOfWorkPerRequestedHeader, "seconds - No work generated")
