@@ -1,6 +1,3 @@
-package main
-
-const kernelSource = `
 inline static uint8 ror64(const uint8 x, const uint4 y)
 {
     uint4 ox = x.odd;
@@ -97,4 +94,3 @@ __kernel void nonceGrind(__global ulong *headerIn, __global ulong *nonceOut) {
 		return;
 	}
 }
-`

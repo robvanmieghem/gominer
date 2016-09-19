@@ -3,7 +3,7 @@ package main
 import (
 	"log"
 	"time"
-
+    "io/ioutil"
 	"./cl"
 )
 
@@ -51,13 +51,18 @@ func (miner *Miner) mine() {
 	}
 	defer commandQueue.Release()
 
-	program, err := context.CreateProgramWithSource([]string{kernelSource})
+    ksrc, lerr := ioutil.ReadFile("./kernel-simd_x64.spirv")
+    if lerr != nil {
+        log.Fatalln("Problems with loading file... ", lerr)
+    }
+    
+	program, err := context.CreateProgramWithIL(ksrc)
 	if err != nil {
 		log.Fatalln(miner.minerID, "-", err)
 	}
 	defer program.Release()
 
-	err = program.BuildProgram([]*cl.Device{miner.clDevice}, "-cl-mad-enable -cl-unsafe-math-optimizations -cl-std=CL1.2")
+	err = program.BuildProgram([]*cl.Device{miner.clDevice}, "")
 	if err != nil {
 		log.Fatalln(miner.minerID, "-", err)
 	}
@@ -83,7 +88,7 @@ func (miner *Miner) mine() {
 	kernel.SetArgBuffer(1, nonceOutObj)
 
 	localItemSize, err := kernel.WorkGroupSize(miner.clDevice)
-	localItemSize = min(localItemSize, 256)
+	//localItemSize = min(localItemSize, 256)
 	if err != nil {
 		log.Fatalln(miner.minerID, "- WorkGroupSize failed -", err)
 	}

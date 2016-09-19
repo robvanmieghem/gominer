@@ -16,7 +16,7 @@ in the Go standard packages.
 */
 package cl
 
-// #cgo CFLAGS: -D CL_USE_DEPRECATED_OPENCL_1_1_APIS -D CL_USE_DEPRECATED_OPENCL_1_2_APIS -I /Intel/OpenCLSDK/6.1/include -I /Intel/OpenCLSDK/6.1/include/CL -Wno-ignored-attributes
+// #cgo CFLAGS: -D CL_USE_DEPRECATED_OPENCL_1_1_APIS -D CL_USE_DEPRECATED_OPENCL_1_2_APIS -D CL_USE_DEPRECATED_OPENCL_2_0_APIS -D CL_USE_DEPRECATED_OPENCL_2_1_APIS -I /Intel/OpenCLSDK/6.1/include -I /Intel/OpenCLSDK/6.1/include/CL -Wno-ignored-attributes
 // #cgo darwin LDFLAGS: -L/Intel/OpenCLSDK/6.1/lib/x64 -framework OpenCL
 // #cgo linux LDFLAGS: -L/Intel/OpenCLSDK/6.1/lib/x64 -lOpenCL
 // #cgo windows LDFLAGS: -L/Intel/OpenCLSDK/6.1/lib/x64 -lOpenCL

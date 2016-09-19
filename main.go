@@ -66,7 +66,7 @@ func main() {
 	siad := NewSiadClient(*siadHost, *queryString)
 
 	if *useCPU {
-		devicesTypesForMining = cl.DeviceTypeAll
+		devicesTypesForMining = cl.DeviceTypeCPU
 	}
 	globalItemSize := int(math.Exp2(float64(intensity)))
 
