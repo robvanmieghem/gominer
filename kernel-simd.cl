@@ -76,6 +76,8 @@ __kernel void nonceGrind(__global ulong *headerIn, __global ulong *nonceOut) {
 	ROUND( 11 );
 #undef G
 #undef ROUND
+    barrier(CLK_LOCAL_MEM_FENCE|CLK_GLOBAL_MEM_FENCE);
+
     ulong4 l = (ulong4)(0x6a09e667f2bdc928) ^ v[0] ^ v[8];
 	if (as_ulong(as_uchar8(l.x).s76543210) < target) {
 		*nonceOut = m[4].x;
