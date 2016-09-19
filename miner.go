@@ -4,8 +4,15 @@ import (
 	"log"
 	"time"
 
-	"github.com/robvanmieghem/go-opencl/cl"
+	"./cl"
 )
+
+func min(a, b int) int {
+	if a > b {
+		return b
+	}
+	return a
+}
 
 //HashRateReport is sent from the mining routines for giving combined information as output
 type HashRateReport struct {
@@ -50,7 +57,7 @@ func (miner *Miner) mine() {
 	}
 	defer program.Release()
 
-	err = program.BuildProgram([]*cl.Device{miner.clDevice}, "")
+	err = program.BuildProgram([]*cl.Device{miner.clDevice}, "-cl-mad-enable -cl-unsafe-math-optimizations -cl-std=CL1.2")
 	if err != nil {
 		log.Fatalln(miner.minerID, "-", err)
 	}
@@ -76,6 +83,7 @@ func (miner *Miner) mine() {
 	kernel.SetArgBuffer(1, nonceOutObj)
 
 	localItemSize, err := kernel.WorkGroupSize(miner.clDevice)
+	localItemSize = min(localItemSize, 256)
 	if err != nil {
 		log.Fatalln(miner.minerID, "- WorkGroupSize failed -", err)
 	}
@@ -116,7 +124,7 @@ func (miner *Miner) mine() {
 		}
 
 		//Run the kernel
-		if _, err = commandQueue.EnqueueNDRangeKernel(kernel, []int{int(work.Offset)}, []int{miner.GlobalItemSize}, []int{localItemSize}, nil); err != nil {
+		if _, err = commandQueue.EnqueueNDRangeKernel(kernel, []int{int(work.Offset)}, []int{miner.GlobalItemSize / 4}, []int{localItemSize}, nil); err != nil {
 			log.Fatalln(miner.minerID, "-", err)
 		}
 		//Get output

@@ -10,7 +10,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/robvanmieghem/go-opencl/cl"
+	"./cl"
 )
 
 //Version is the released version string of gominer
