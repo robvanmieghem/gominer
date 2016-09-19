@@ -118,11 +118,11 @@ __constant static const ulong4 z0 = (ulong4)(0);
 
 __kernel void nonceGrind(__global ulong *headerIn, __global ulong *nonceOut) {
     ulong target = headerIn[10];
-    ulong4 num = (ulong4)(get_global_id(0)); //| (ulong4)(headerIn[4]);
+    ulong4 num = (ulong4)(get_global_id(0));
     ulong4 off = (ulong4)(get_global_offset(0));
 	ulong4 m[16] = {(ulong4)(headerIn[0]), (ulong4)(headerIn[1]),
 	                (ulong4)(headerIn[2]), (ulong4)(headerIn[3]),
-	                (num - off) * 4 + (ulong4)(0, 1, 2, 3) + off, 
+	                ((num - off) * 4 + (ulong4)(0, 1, 2, 3) + off) | (ulong4)(headerIn[4]), 
                     (ulong4)(headerIn[5]),
 	                (ulong4)(headerIn[6]), (ulong4)(headerIn[7]),
 	                (ulong4)(headerIn[8]), (ulong4)(headerIn[9]), 
