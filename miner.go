@@ -62,7 +62,7 @@ func (miner *Miner) mine() {
 	}
 	defer program.Release()
 
-	err = program.BuildProgram([]*cl.Device{miner.clDevice}, "")
+	err = program.BuildProgram([]*cl.Device{miner.clDevice}, "-cl-unsafe-math-optimizations -cl-mad-enable")
 	if err != nil {
 		log.Fatalln(miner.minerID, "-", err)
 	}
