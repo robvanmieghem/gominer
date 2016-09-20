@@ -1,14 +1,17 @@
+__constant static const uint8 uint2x4_mask = (uint8)(0, 4, 1, 5, 2, 6, 3, 7);
+
+inline static uint8 uint2x4f(const uint4 a, const uint4 b){
+    return shuffle2(a, b, uint2x4_mask);
+}
+
 inline static uint8 ror64(const uint8 x, const uint4 y)
 {
-    uint4 ox = x.odd;
-    uint4 ex = x.even;
-    return shuffle2((ex>>y)^(ox<<(32-y)), (ox>>y)^(ex<<(32-y)), (uint8)(0, 4, 1, 5, 2, 6, 3, 7));
+    return uint2x4f((x.even>>y)^(x.odd<<(32-y)), (x.odd>>y)^(x.even<<(32-y)));
 }
+
 inline static uint8 ror64_2(const uint8 x, const uint4 y)
 {
-    uint4 ox = x.odd;
-    uint4 ex = x.even;
-    return shuffle2((ox>>(y-32))^(ex<<(64-y)), (ex>>(y-32))^(ox<<(64-y)), (uint8)(0, 4, 1, 5, 2, 6, 3, 7));
+    return uint2x4f((x.odd>>(y-32))^(x.even<<(64-y)), (x.even>>(y-32))^(x.odd<<(64-y)));
 }
 
 __constant static const uchar blake2b_sigma[12][16] = {
@@ -79,20 +82,11 @@ __kernel void nonceGrind(__global ulong *headerIn, __global ulong *nonceOut) {
     barrier(CLK_LOCAL_MEM_FENCE|CLK_GLOBAL_MEM_FENCE);
 
     ulong4 l = (ulong4)(0x6a09e667f2bdc928) ^ v[0] ^ v[8];
-	if (as_ulong(as_uchar8(l.x).s76543210) < target) {
-		*nonceOut = m[4].x;
-		return;
-	}
-    if (as_ulong(as_uchar8(l.y).s76543210) < target) {
-		*nonceOut = m[4].y;
-		return;
-	}
-    if (as_ulong(as_uchar8(l.z).s76543210) < target) {
-		*nonceOut = m[4].z;
-		return;
-	}
-    if (as_ulong(as_uchar8(l.w).s76543210) < target) {
-		*nonceOut = m[4].w;
-		return;
-	}
+    ulong2 lw = as_ulong2(as_uchar16(l.xy).s76543210fedcba98);
+    ulong2 hg = as_ulong2(as_uchar16(l.zw).s76543210fedcba98);
+    
+	if (lw.x < target) {*nonceOut = m[4].x;return;}
+    if (lw.y < target) {*nonceOut = m[4].y;return;}
+    if (hg.x < target) {*nonceOut = m[4].z;return;}
+    if (hg.y < target) {*nonceOut = m[4].w;return;}
 }
