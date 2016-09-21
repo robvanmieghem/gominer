@@ -1,11 +1,19 @@
 package main
 
 import (
+	"io/ioutil"
 	"log"
 	"time"
 
-	"github.com/robvanmieghem/go-opencl/cl"
+	"./cl"
 )
+
+func min(a, b int) int {
+	if a > b {
+		return b
+	}
+	return a
+}
 
 //HashRateReport is sent from the mining routines for giving combined information as output
 type HashRateReport struct {
@@ -44,13 +52,18 @@ func (miner *Miner) mine() {
 	}
 	defer commandQueue.Release()
 
-	program, err := context.CreateProgramWithSource([]string{kernelSource})
+	ksrc, lerr := ioutil.ReadFile("./kernel-simd_x64.spirv")
+	if lerr != nil {
+		log.Fatalln("Problems with loading file... ", lerr)
+	}
+
+	program, err := context.CreateProgramWithIL(ksrc)
 	if err != nil {
 		log.Fatalln(miner.minerID, "-", err)
 	}
 	defer program.Release()
 
-	err = program.BuildProgram([]*cl.Device{miner.clDevice}, "")
+	err = program.BuildProgram([]*cl.Device{miner.clDevice}, "-cl-unsafe-math-optimizations -cl-mad-enable")
 	if err != nil {
 		log.Fatalln(miner.minerID, "-", err)
 	}
@@ -68,7 +81,8 @@ func (miner *Miner) mine() {
 	defer blockHeaderObj.Release()
 	kernel.SetArgBuffer(0, blockHeaderObj)
 
-	nonceOutObj, err := context.CreateEmptyBuffer(cl.MemReadWrite, 8)
+	nonceOut := make([]byte, 8, 8)
+	nonceOutObj, err := context.CreateBuffer(cl.MemReadWrite|cl.MemUseHostPtr, nonceOut)
 	if err != nil {
 		log.Fatalln(miner.minerID, "-", err)
 	}
@@ -76,6 +90,7 @@ func (miner *Miner) mine() {
 	kernel.SetArgBuffer(1, nonceOutObj)
 
 	localItemSize, err := kernel.WorkGroupSize(miner.clDevice)
+	//localItemSize = min(localItemSize, 256)
 	if err != nil {
 		log.Fatalln(miner.minerID, "- WorkGroupSize failed -", err)
 	}
@@ -84,7 +99,6 @@ func (miner *Miner) mine() {
 
 	log.Println(miner.minerID, "- Initialized ", miner.clDevice.Type(), "-", miner.clDevice.Name())
 
-	nonceOut := make([]byte, 8, 8)
 	if _, err = commandQueue.EnqueueWriteBufferByte(nonceOutObj, true, 0, nonceOut, nil); err != nil {
 		log.Fatalln(miner.minerID, "-", err)
 	}
@@ -116,13 +130,15 @@ func (miner *Miner) mine() {
 		}
 
 		//Run the kernel
-		if _, err = commandQueue.EnqueueNDRangeKernel(kernel, []int{int(work.Offset)}, []int{miner.GlobalItemSize}, []int{localItemSize}, nil); err != nil {
+		if _, err = commandQueue.EnqueueNDRangeKernel(kernel, []int{int(work.Offset)}, []int{miner.GlobalItemSize / 4}, []int{localItemSize}, nil); err != nil {
 			log.Fatalln(miner.minerID, "-", err)
 		}
+		commandQueue.Finish()
+
 		//Get output
-		if _, err = commandQueue.EnqueueReadBufferByte(nonceOutObj, true, 0, nonceOut, nil); err != nil {
+		/*if _, err = commandQueue.EnqueueReadBufferByte(nonceOutObj, true, 0, nonceOut, nil); err != nil {
 			log.Fatalln(miner.minerID, "-", err)
-		}
+		}*/
 		//Check if match found
 		if nonceOut[0] != 0 || nonceOut[1] != 0 || nonceOut[2] != 0 || nonceOut[3] != 0 || nonceOut[4] != 0 || nonceOut[5] != 0 || nonceOut[6] != 0 || nonceOut[7] != 0 {
 			log.Println(miner.minerID, "-", "Yay, solution found!")
@@ -144,10 +160,12 @@ func (miner *Miner) mine() {
 			log.Println("Submitted header:", header)
 
 			//Clear the output since it is dirty now
-			nonceOut = make([]byte, 8, 8)
-			if _, err = commandQueue.EnqueueWriteBufferByte(nonceOutObj, true, 0, nonceOut, nil); err != nil {
-				log.Fatalln(miner.minerID, "-", err)
+			for i := 0; i < 8; i++ {
+				nonceOut[i] = 0
 			}
+			/*if _, err = commandQueue.EnqueueWriteBufferByte(nonceOutObj, true, 0, nonceOut, nil); err != nil {
+				log.Fatalln(miner.minerID, "-", err)
+			}*/
 		}
 
 		hashRate := float64(miner.GlobalItemSize) / (time.Since(start).Seconds() * 1000000)

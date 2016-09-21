@@ -10,7 +10,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/robvanmieghem/go-opencl/cl"
+	"./cl"
 )
 
 //Version is the released version string of gominer
@@ -66,7 +66,7 @@ func main() {
 	siad := NewSiadClient(*siadHost, *queryString)
 
 	if *useCPU {
-		devicesTypesForMining = cl.DeviceTypeAll
+		devicesTypesForMining = cl.DeviceTypeCPU
 	}
 	globalItemSize := int(math.Exp2(float64(intensity)))
 
