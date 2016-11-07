@@ -3,7 +3,6 @@ GPU miner for siacoin in go
 
 All available opencl capable GPU's are detected and used in parallel.
 
-
 ## Installation from source
 
 ### Prerequisites
@@ -22,8 +21,9 @@ gominer
 
 Usage:
 ```
-  -H string
+  -url string
     	siad host and port (default "localhost:9980")
+        for stratum servers, use `stratum+tcp://<host>:<port>`
   -Q string
     	Query string
   -I int
@@ -36,6 +36,10 @@ Usage:
 ```
 
 See what intensity gives you the best hashrate.
+
+## Stratum support
+
+Stratum support is implemented as defined on https://siamining.com/stratum
 
 ## FAQ
 

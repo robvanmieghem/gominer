@@ -1,4 +1,4 @@
-package main
+package clients
 
 import (
 	"bytes"
@@ -14,16 +14,28 @@ type HeaderReporter interface {
 	SubmitHeader(header []byte) (err error)
 }
 
-// SiadClient is used to connect to siad
-type SiadClient struct {
-	siadurl string
+//HeaderProvider supplies headers for a miner to mine on
+type HeaderProvider interface {
+	//GetHeaderForWork providers a header to mine on
+	GetHeaderForWork() (target, header []byte, err error)
 }
 
-// NewSiadClient creates a new SiadClient given a 'host:port' connectionstring
-func NewSiadClient(connectionstring string, querystring string) *SiadClient {
+// SiaClient is the Definition a client towards the sia network
+type SiaClient interface {
+	HeaderProvider
+	HeaderReporter
+}
+
+// NewSiaClient creates a new SiadClient given a 'host:port' connectionstring
+func NewSiaClient(connectionstring string, querystring string) SiaClient {
 	s := SiadClient{}
 	s.siadurl = "http://" + connectionstring + "/miner/header?" + querystring
 	return &s
+}
+
+// SiadClient is a simple client to a siad
+type SiadClient struct {
+	siadurl string
 }
 
 func decodeMessage(resp *http.Response) (msg string, err error) {
@@ -31,7 +43,9 @@ func decodeMessage(resp *http.Response) (msg string, err error) {
 	if err != nil {
 		return
 	}
-	var data struct{Message string `json:"message"`}
+	var data struct {
+		Message string `json:"message"`
+	}
 	if err = json.Unmarshal(buf, &data); err == nil {
 		msg = data.Message
 	}

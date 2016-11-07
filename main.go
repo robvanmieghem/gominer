@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/robvanmieghem/go-opencl/cl"
+	"github.com/robvanmieghem/gominer/clients"
 )
 
 //Version is the released version string of gominer
@@ -19,7 +20,9 @@ var Version = "0.5-Dev"
 var intensity = 28
 var devicesTypesForMining = cl.DeviceTypeGPU
 
-func createWork(siad *SiadClient, miningWorkChannel chan *MiningWork, secondsOfWorkPerRequestedHeader int, globalItemSize int) {
+const maxUint32 = int64(^uint32(0))
+
+func createWork(siad clients.SiaClient, miningWorkChannel chan *MiningWork, nrOfMiningDevices int, globalItemSize int) {
 	for {
 		timeBeforeGettingWork := time.Now()
 		target, header, err := siad.GetHeaderForWork()
@@ -35,15 +38,9 @@ func createWork(siad *SiadClient, miningWorkChannel chan *MiningWork, secondsOfW
 		}
 		//Fill the workchannel with work for the requested number of secondsOfWorkPerRequestedHeader
 		// If the GetHeaderForWork call took too long, it might be that no work is generated at all
-		for i := uint64(0); ; i++ {
-			if time.Since(timeBeforeGettingWork) < time.Second*time.Duration(secondsOfWorkPerRequestedHeader) {
-				miningWorkChannel <- &MiningWork{header, i * uint64(globalItemSize)}
-			} else {
-				if i == 0 {
-					log.Println("ERROR: Getting work took longer then", secondsOfWorkPerRequestedHeader, "seconds - No work generated")
-				}
-				break
-			}
+		// Only generate nonces for a 32 bit space (since gpu's are mostly 32 bit)
+		for i := int64(0); i*int64(globalItemSize) < (maxUint32 - int64(globalItemSize)); i++ {
+			miningWorkChannel <- &MiningWork{header, int(i) * globalItemSize}
 		}
 	}
 }
@@ -52,8 +49,7 @@ func main() {
 	printVersion := flag.Bool("v", false, "Show version and exit")
 	useCPU := flag.Bool("cpu", false, "If set, also use the CPU for mining, only GPU's are used by default")
 	flag.IntVar(&intensity, "I", intensity, "Intensity")
-	siadHost := flag.String("H", "localhost:9980", "siad host and port")
-	secondsOfWorkPerRequestedHeader := flag.Int("S", 10, "Time between calls to siad")
+	siadHost := flag.String("url", "localhost:9980", "siad host and port, for stratum servers, use `stratum+tcp://<host>:<port>`")
 	excludedGPUs := flag.String("E", "", "Exclude GPU's: comma separated list of devicenumbers")
 	queryString := flag.String("Q", "", "Query string")
 	flag.Parse()
@@ -63,7 +59,7 @@ func main() {
 		os.Exit(0)
 	}
 
-	siad := NewSiadClient(*siadHost, *queryString)
+	siad := clients.NewSiaClient(*siadHost, *queryString)
 
 	if *useCPU {
 		devicesTypesForMining = cl.DeviceTypeAll
@@ -98,7 +94,7 @@ func main() {
 
 	//Start fetching work
 	workChannel := make(chan *MiningWork, nrOfMiningDevices*4)
-	go createWork(siad, workChannel, *secondsOfWorkPerRequestedHeader, globalItemSize)
+	go createWork(siad, workChannel, nrOfMiningDevices, globalItemSize)
 
 	//Start mining routines
 	var hashRateReportsChannel = make(chan *HashRateReport, nrOfMiningDevices*10)
