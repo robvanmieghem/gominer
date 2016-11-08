@@ -79,7 +79,7 @@ __kernel void nonceGrind(__global ulong *headerIn, __global ulong *nonceOut) {
 #undef G
 #undef ROUND
 
-	if (as_ulong(as_uchar8(0x6a09e667f2bdc928 ^ v[0] ^ v[8]).s76543210) < target) {
+	if (as_ulong(as_uchar8(0x6a09e667f2bdc928 ^ v[0] ^ v[8]).s76543210) <= target) {
 		*nonceOut = m[4];
 		return;
 	}
