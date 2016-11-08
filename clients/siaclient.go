@@ -27,10 +27,11 @@ type SiaClient interface {
 }
 
 // NewSiaClient creates a new SiadClient given a 'host:port' connectionstring
-func NewSiaClient(connectionstring string, querystring string) SiaClient {
+func NewSiaClient(connectionstring string, querystring string) (sc SiaClient) {
 	s := SiadClient{}
 	s.siadurl = "http://" + connectionstring + "/miner/header?" + querystring
-	return &s
+	sc = &s
+	return
 }
 
 // SiadClient is a simple client to a siad

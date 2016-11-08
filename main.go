@@ -24,17 +24,12 @@ const maxUint32 = int64(^uint32(0))
 
 func createWork(siad clients.SiaClient, miningWorkChannel chan *MiningWork, nrOfMiningDevices int, globalItemSize int) {
 	for {
-		timeBeforeGettingWork := time.Now()
-		target, header, err := siad.GetHeaderForWork()
+		_, header, err := siad.GetHeaderForWork()
 
 		if err != nil {
 			log.Println("ERROR fetching work -", err)
 			time.Sleep(1000 * time.Millisecond)
 			continue
-		}
-		//append target to header
-		for i := 0; i < 8; i++ {
-			header = append(header, target[7-i])
 		}
 		//Fill the workchannel with work for the requested number of secondsOfWorkPerRequestedHeader
 		// If the GetHeaderForWork call took too long, it might be that no work is generated at all
