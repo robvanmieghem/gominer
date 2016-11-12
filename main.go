@@ -22,9 +22,10 @@ var devicesTypesForMining = cl.DeviceTypeGPU
 
 const maxUint32 = int64(^uint32(0))
 
-func createWork(siad clients.SiaClient, miningWorkChannel chan *MiningWork, nrOfMiningDevices int, globalItemSize int) {
+func createWork(siaclient clients.SiaClient, miningWorkChannel chan *MiningWork, nrOfMiningDevices int, globalItemSize int) {
+	siaclient.Start()
 	for {
-		target, header, err := siad.GetHeaderForWork()
+		target, header, err := siaclient.GetHeaderForWork()
 
 		if err != nil {
 			log.Println("ERROR fetching work -", err)
@@ -58,7 +59,7 @@ func main() {
 		os.Exit(0)
 	}
 
-	siad := clients.NewSiaClient(*siadHost, *queryString)
+	siaclient := clients.NewSiaClient(*siadHost, *queryString)
 
 	if *useCPU {
 		devicesTypesForMining = cl.DeviceTypeAll
@@ -93,7 +94,7 @@ func main() {
 
 	//Start fetching work
 	workChannel := make(chan *MiningWork, nrOfMiningDevices*4)
-	go createWork(siad, workChannel, nrOfMiningDevices, globalItemSize)
+	go createWork(siaclient, workChannel, nrOfMiningDevices, globalItemSize)
 
 	//Start mining routines
 	var hashRateReportsChannel = make(chan *HashRateReport, nrOfMiningDevices*10)
@@ -107,7 +108,7 @@ func main() {
 			hashRateReports:   hashRateReportsChannel,
 			miningWorkChannel: workChannel,
 			GlobalItemSize:    globalItemSize,
-			siad:              siad,
+			siad:              siaclient,
 		}
 		go miner.mine()
 	}

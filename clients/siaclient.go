@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"net/http"
+	"strings"
 )
 
 //HeaderReporter defines the required method a SIA client or pool client should implement for miners to be able to report solved headers
@@ -24,13 +25,20 @@ type HeaderProvider interface {
 type SiaClient interface {
 	HeaderProvider
 	HeaderReporter
+	//Start connects to a sia daemon and starts supplying valid headers
+	// It can be empty in case of a "getwork" implementation or maintain a tcp connection in case of stratum for example
+	Start()
 }
 
 // NewSiaClient creates a new SiadClient given a 'host:port' connectionstring
 func NewSiaClient(connectionstring string, querystring string) (sc SiaClient) {
-	s := SiadClient{}
-	s.siadurl = "http://" + connectionstring + "/miner/header?" + querystring
-	sc = &s
+	if strings.HasPrefix(connectionstring, "stratum+tcp://") {
+		sc = &SiaStratumClient{connectionstring: strings.TrimPrefix(connectionstring, "stratum+tcp://")}
+	} else {
+		s := SiadClient{}
+		s.siadurl = "http://" + connectionstring + "/miner/header?" + querystring
+		sc = &s
+	}
 	return
 }
 
@@ -52,6 +60,9 @@ func decodeMessage(resp *http.Response) (msg string, err error) {
 	}
 	return
 }
+
+//Start does nothing
+func (sc *SiadClient) Start() {}
 
 //GetHeaderForWork fetches new work from the SIA daemon
 func (sc *SiadClient) GetHeaderForWork() (target, header []byte, err error) {
