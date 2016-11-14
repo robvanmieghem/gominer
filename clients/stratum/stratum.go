@@ -133,13 +133,8 @@ func (c *Client) Call(serviceMethod string, args []string, reply interface{}) (e
 		return
 	}
 	//TODO: call, err := c.registerRequest(r)
-
+	rawmsg = append(rawmsg, []byte("\n")...)
 	_, err = c.socket.Write(rawmsg)
-	if err != nil {
-		//TODO: c.cancelRequest(r.ID)
-		return
-	}
-	_, err = c.socket.Write([]byte("\n"))
 	if err != nil {
 		//TODO: c.cancelRequest(r.ID)
 		return
