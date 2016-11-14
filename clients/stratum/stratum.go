@@ -17,6 +17,7 @@ type request struct {
 }
 
 // response is the stratum server's response on a Request
+// notification is an inline struct to easily decode messages in a response/notification using a json marshaller
 type response struct {
 	ID           uint64           `json:"id"`
 	Result       *json.RawMessage `json:"result"`
@@ -48,7 +49,7 @@ type Client struct {
 
 //Dial connects to a stratum+tcp at the specified network address.
 // This function is not threadsafe
-// If an error occurs, it is both returned here through the ErrorCallback of the Client
+// If an error occurs, it is both returned here and through the ErrorCallback of the Client
 func (c *Client) Dial(host string) (err error) {
 	c.socket, err = net.Dial("tcp", host)
 	if err != nil {
@@ -101,8 +102,9 @@ func (c *Client) dispatchError(err error) {
 //Listen reads data from the open connection, deserializes it and dispatches the reponses and notifications
 // This is a blocking function and will continue to listen until an error occurs (io or deserialization)
 func (c *Client) Listen() {
+	reader := bufio.NewReader(c.socket)
 	for {
-		rawmessage, err := bufio.NewReader(c.socket).ReadString('\n')
+		rawmessage, err := reader.ReadString('\n')
 		if err != nil {
 			c.dispatchError(err)
 			return
