@@ -30,13 +30,13 @@ type SiaClient interface {
 	Start()
 }
 
-// NewSiaClient creates a new SiadClient given a 'host:port' connectionstring
-func NewSiaClient(connectionstring string, querystring string) (sc SiaClient) {
+// NewSiaClient creates a new SiadClient given a '[stratum+tcp://]host:port' connectionstring
+func NewSiaClient(connectionstring string) (sc SiaClient) {
 	if strings.HasPrefix(connectionstring, "stratum+tcp://") {
 		sc = &SiaStratumClient{connectionstring: strings.TrimPrefix(connectionstring, "stratum+tcp://")}
 	} else {
 		s := SiadClient{}
-		s.siadurl = "http://" + connectionstring + "/miner/header?" + querystring
+		s.siadurl = "http://" + connectionstring + "/miner/header"
 		sc = &s
 	}
 	return

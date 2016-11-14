@@ -51,7 +51,6 @@ func main() {
 	flag.IntVar(&intensity, "I", intensity, "Intensity")
 	siadHost := flag.String("url", "localhost:9980", "siad host and port, for stratum servers, use `stratum+tcp://<host>:<port>`")
 	excludedGPUs := flag.String("E", "", "Exclude GPU's: comma separated list of devicenumbers")
-	queryString := flag.String("Q", "", "Query string")
 	flag.Parse()
 
 	if *printVersion {
@@ -59,7 +58,7 @@ func main() {
 		os.Exit(0)
 	}
 
-	siaclient := clients.NewSiaClient(*siadHost, *queryString)
+	siaclient := clients.NewSiaClient(*siadHost)
 
 	if *useCPU {
 		devicesTypesForMining = cl.DeviceTypeAll

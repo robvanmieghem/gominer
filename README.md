@@ -24,8 +24,6 @@ Usage:
   -url string
     	siad host and port (default "localhost:9980")
         for stratum servers, use `stratum+tcp://<host>:<port>`
-  -Q string
-    	Query string
   -I int
     	Intensity (default 28)
   -E string
