@@ -61,11 +61,12 @@ func (sc *SiaStratumClient) Start() {
 	log.Println("Connecting to", sc.connectionstring)
 	sc.stratumclient.Dial(sc.connectionstring)
 	//TODO: proper response handling
-	err := sc.stratumclient.Call("mining.subscribe", []string{}, nil)
+	reply, err := sc.stratumclient.Call("mining.subscribe", []string{})
 	if err != nil {
 		//Closing the connection will cause the client to generate an error, resulting in te errorhandler to be triggered
 		sc.stratumclient.Close()
 	}
+	log.Println("DEBUG: stratum reply:", reply)
 }
 
 func (sc *SiaStratumClient) subscribeToStratumDifficultyChanges() {

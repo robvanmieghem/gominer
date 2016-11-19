@@ -5,8 +5,10 @@ package stratum
 import (
 	"bufio"
 	"encoding/json"
+	"errors"
 	"net"
 	"sync"
+	"time"
 )
 
 // request : A remote method is invoked by sending a request to the remote stratum service.
@@ -19,9 +21,9 @@ type request struct {
 // response is the stratum server's response on a Request
 // notification is an inline struct to easily decode messages in a response/notification using a json marshaller
 type response struct {
-	ID           uint64           `json:"id"`
-	Result       *json.RawMessage `json:"result"`
-	Error        error            `json:"error,string"`
+	ID           uint64      `json:"id"`
+	Result       interface{} `json:"result"`
+	Error        error       `json:"error,string"`
 	notification `json:",inline"`
 }
 
@@ -40,9 +42,14 @@ type NotificationHandler func(args []interface{})
 
 // Client maintains a connection to the stratum server and (de)serializes requests/reponses/notifications
 type Client struct {
-	socket               net.Conn
-	seqmutex             sync.Mutex // protects following
-	seq                  uint64
+	socket net.Conn
+
+	seqmutex sync.Mutex // protects following
+	seq      uint64
+
+	callsMutex   sync.Mutex // protects following
+	pendingCalls map[uint64]chan interface{}
+
 	ErrorCallback        ErrorCallback
 	notificationHandlers map[string]NotificationHandler
 }
@@ -90,7 +97,12 @@ func (c *Client) dispatch(r response) {
 		c.dispatchNotification(r.notification)
 		return
 	}
-	//TODO: dispatch normal response
+	c.callsMutex.Lock()
+	defer c.callsMutex.Unlock()
+	cb, found := c.pendingCalls[r.ID]
+	if found {
+		cb <- r.Result
+	}
 }
 
 func (c *Client) dispatchError(err error) {
@@ -119,8 +131,29 @@ func (c *Client) Listen() {
 	}
 }
 
+func (c *Client) registerRequest(requestID uint64) (cb chan interface{}) {
+	c.callsMutex.Lock()
+	defer c.callsMutex.Unlock()
+	if c.pendingCalls == nil {
+		c.pendingCalls = make(map[uint64]chan interface{})
+	}
+	cb = make(chan interface{})
+	c.pendingCalls[requestID] = cb
+	return
+}
+
+func (c *Client) cancelRequest(requestID uint64) {
+	c.callsMutex.Lock()
+	defer c.callsMutex.Unlock()
+	cb, found := c.pendingCalls[requestID]
+	if found {
+		close(cb)
+		delete(c.pendingCalls, requestID)
+	}
+}
+
 //Call invokes the named function, waits for it to complete, and returns its error status.
-func (c *Client) Call(serviceMethod string, args []string, reply interface{}) (err error) {
+func (c *Client) Call(serviceMethod string, args []string) (reply interface{}, err error) {
 	r := request{Method: serviceMethod, Params: args}
 
 	c.seqmutex.Lock()
@@ -132,17 +165,22 @@ func (c *Client) Call(serviceMethod string, args []string, reply interface{}) (e
 	if err != nil {
 		return
 	}
-	//TODO: call, err := c.registerRequest(r)
+	call := c.registerRequest(r.ID)
 	rawmsg = append(rawmsg, []byte("\n")...)
 	_, err = c.socket.Write(rawmsg)
 	if err != nil {
-		//TODO: c.cancelRequest(r.ID)
+		c.cancelRequest(r.ID)
 		return
 	}
-	//TODO:
-	// call.SetTimeout(10, func() {
-	// 	c.cancelRequest(r.ID)
-	// })
-	// return call.Wait()
+	//Make sure the request is cancelled if no response is given
+	go func() {
+		time.Sleep(10 * time.Second)
+		c.cancelRequest(r.ID)
+	}()
+	reply = <-call
+	if reply == nil {
+		err = errors.New("Timeout")
+	}
+	c.cancelRequest(r.ID)
 	return
 }
