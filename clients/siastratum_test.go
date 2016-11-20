@@ -20,3 +20,26 @@ func TestDifficultyToTarget(t *testing.T) {
 		t.Error("0x"+hex.EncodeToString(target[:]), "returned instead of", expectedTarget)
 	}
 }
+
+func TestExtraNonce2Bytes(t *testing.T) {
+	// Test serialization
+	en := extraNonce2{value: 1, size: 4}
+	expected := "00000001"
+	result := hex.EncodeToString(en.Bytes())
+	if expected != result {
+		t.Error(result, "returned instead of", expected)
+	}
+
+	//Test increment
+	en = extraNonce2{value: 1, size: 4}
+	err := en.Increment()
+	if err != nil {
+		t.Error("No error should be returned from the increment statement")
+		return
+	}
+	expected = "00000002"
+	result = hex.EncodeToString(en.Bytes())
+	if expected != result {
+		t.Error(result, "returned instead of", expected)
+	}
+}

@@ -1,7 +1,9 @@
 package clients
 
 import (
+	"encoding/hex"
 	"errors"
+	"fmt"
 	"log"
 	"math/big"
 	"reflect"
@@ -20,7 +22,7 @@ type (
 	Target      [HashSize]byte
 	extraNonce2 struct {
 		value uint64
-		size  int
+		size  uint
 	}
 )
 
@@ -44,9 +46,25 @@ type SiaStratumClient struct {
 	mutex           sync.Mutex // protects following
 	stratumclient   *stratum.Client
 	extranonce1     string
-	extranonce2Size int
+	extranonce2Size uint
 	target          Target
 	currentJob      stratumJob
+}
+
+//Bytes is a bigendian representation of the extranonce
+func (en *extraNonce2) Bytes() (b []byte) {
+	b = make([]byte, en.size, en.size)
+	for i := uint(0); i < en.size; i++ {
+		b[(en.size-1)-i] = byte(en.value >> (i * 8))
+	}
+	return
+}
+
+//Increment increases the nonce with 1, an error is returned if the resulting is value is bigger than possible given the size
+func (en *extraNonce2) Increment() (err error) {
+	en.value++
+	//TODO: check if does not overflow compared to the allowed size
+	return
 }
 
 //Start connects to the stratumserver and processes the notifications
@@ -91,7 +109,7 @@ func (sc *SiaStratumClient) Start() {
 		sc.stratumclient.Close()
 		return
 	}
-	sc.extranonce2Size = int(extranonce2Size)
+	sc.extranonce2Size = uint(extranonce2Size)
 
 }
 
@@ -227,6 +245,13 @@ func (sc *SiaStratumClient) setDifficulty(difficulty float64) {
 func (sc *SiaStratumClient) GetHeaderForWork() (target, header []byte, err error) {
 	sc.mutex.Lock()
 	defer sc.mutex.Unlock()
+
+	target = sc.target[:]
+	en2 := sc.currentJob.ExtraNonce2.Bytes()
+	sc.currentJob.ExtraNonce2.Increment()
+
+	fmt.Println("Constructing arbitrary tx, extranonce2:", hex.EncodeToString(en2))
+
 	err = errors.New("Not implemented yet")
 	return
 }
