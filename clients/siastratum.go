@@ -1,22 +1,28 @@
 package clients
 
 import (
-	"encoding/json"
 	"errors"
 	"log"
 	"math/big"
+	"reflect"
 	"sync"
 
 	"github.com/robvanmieghem/gominer/clients/stratum"
 )
 
-//SiaStratumClient is a sia client using the stratum protocol
-type SiaStratumClient struct {
-	connectionstring   string
-	stratumclientMutex sync.Mutex // protects following
-	stratumclient      *stratum.Client
-	target             Target
-}
+const (
+	//HashSize is the length of a sia hash
+	HashSize = 32
+)
+
+type (
+	//Target declares what a solution should be smaller than to be accepted
+	Target      [HashSize]byte
+	extraNonce2 struct {
+		value uint64
+		size  int
+	}
+)
 
 type stratumJob struct {
 	JobID        string
@@ -28,23 +34,26 @@ type stratumJob struct {
 	NBits        string
 	NTime        string
 	CleanJobs    bool
+	ExtraNonce2  extraNonce2
 }
 
-const (
-	//HashSize is the length of a sia hash
-	HashSize = 32
-)
+//SiaStratumClient is a sia client using the stratum protocol
+type SiaStratumClient struct {
+	connectionstring string
 
-type (
-	//Target declares what a solution should be smaller than to be accepted
-	Target [HashSize]byte
-)
+	mutex           sync.Mutex // protects following
+	stratumclient   *stratum.Client
+	extranonce1     string
+	extranonce2Size int
+	target          Target
+	currentJob      stratumJob
+}
 
 //Start connects to the stratumserver and processes the notifications
 func (sc *SiaStratumClient) Start() {
-	sc.stratumclientMutex.Lock()
+	sc.mutex.Lock()
 	defer func() {
-		sc.stratumclientMutex.Unlock()
+		sc.mutex.Unlock()
 	}()
 	sc.stratumclient = &stratum.Client{}
 	//In case of an error, drop the current stratumclient and restart
@@ -60,13 +69,30 @@ func (sc *SiaStratumClient) Start() {
 	//Connect to the stratum server
 	log.Println("Connecting to", sc.connectionstring)
 	sc.stratumclient.Dial(sc.connectionstring)
-	//TODO: proper response handling
+
+	//Subscribe for mining
+	//Close the connection on an error will cause the client to generate an error, resulting in te errorhandler to be triggered
 	reply, err := sc.stratumclient.Call("mining.subscribe", []string{})
-	if err != nil {
-		//Closing the connection will cause the client to generate an error, resulting in te errorhandler to be triggered
+	if err != nil || len(reply) < 3 {
+		log.Println("ERROR Invalid response from stratum", reply)
 		sc.stratumclient.Close()
+		return
 	}
-	log.Println("DEBUG: stratum reply:", reply)
+	//Keep the extranonce1 and extranonce2_size from the reply
+	var ok bool
+	if sc.extranonce1, ok = reply[1].(string); !ok {
+		log.Println("ERROR Invalid extranonce1 from stratum", reply)
+		sc.stratumclient.Close()
+		return
+	}
+	extranonce2Size, ok := reply[2].(float64)
+	if !ok {
+		log.Println("ERROR Invalid extranonce2_size from stratum", reply[2], "type", reflect.TypeOf(reply[2]))
+		sc.stratumclient.Close()
+		return
+	}
+	sc.extranonce2Size = int(extranonce2Size)
+
 }
 
 func (sc *SiaStratumClient) subscribeToStratumDifficultyChanges() {
@@ -91,54 +117,57 @@ func (sc *SiaStratumClient) subscribeToStratumJobNotifications() {
 			log.Println("ERROR Wrong number of parameters supplied by stratum server")
 			return
 		}
+
 		sj := stratumJob{}
+		sj.ExtraNonce2.size = sc.extranonce2Size
+
 		var ok bool
 		if sj.JobID, ok = params[0].(string); !ok {
-			log.Println("Wrong job_id parameter supplied by stratum server")
+			log.Println("ERROR Wrong job_id parameter supplied by stratum server")
 			return
 		}
 		if sj.PrevHash, ok = params[1].(string); !ok {
-			log.Println("Wrong prevhash parameter supplied by stratum server")
+			log.Println("ERROR Wrong prevhash parameter supplied by stratum server")
 			return
 		}
 		if sj.Coinbase1, ok = params[2].(string); !ok {
-			log.Println("Wrong coinb1 parameter supplied by stratum server")
+			log.Println("ERROR Wrong coinb1 parameter supplied by stratum server")
 			return
 		}
 		if sj.Coinbase2, ok = params[3].(string); !ok {
-			log.Println("Wrong coinb2 parameter supplied by stratum server")
+			log.Println("ERROR Wrong coinb2 parameter supplied by stratum server")
 			return
 		}
 
 		//Convert the merklebranch parameter
 		merklebranch, ok := params[4].([]interface{})
 		if !ok {
-			log.Println("Wrong merkle_branch parameter supplied by stratum server")
+			log.Println("ERROR Wrong merkle_branch parameter supplied by stratum server")
 			return
 		}
 		sj.MerkleBranch = make([]string, len(merklebranch), len(merklebranch))
 		for i, branch := range merklebranch {
 			sj.MerkleBranch[i], ok = branch.(string)
 			if !ok {
-				log.Println("Wrong merkle_branch parameter supplied by stratum server")
+				log.Println("ERROR Wrong merkle_branch parameter supplied by stratum server")
 				return
 			}
 		}
 
 		if sj.Version, ok = params[5].(string); !ok {
-			log.Println("Wrong version parameter supplied by stratum server")
+			log.Println("ERROR Wrong version parameter supplied by stratum server")
 			return
 		}
 		if sj.NBits, ok = params[6].(string); !ok {
-			log.Println("Wrong nbits parameter supplied by stratum server")
+			log.Println("ERROR Wrong nbits parameter supplied by stratum server")
 			return
 		}
 		if sj.NTime, ok = params[7].(string); !ok {
-			log.Println("Wrong ntime parameter supplied by stratum server")
+			log.Println("ERROR Wrong ntime parameter supplied by stratum server")
 			return
 		}
 		if sj.CleanJobs, ok = params[8].(bool); !ok {
-			log.Println("Wrong clean_jobs parameter supplied by stratum server")
+			log.Println("ERROR Wrong clean_jobs parameter supplied by stratum server")
 			return
 		}
 		sc.addNewStratumJob(sj)
@@ -146,9 +175,9 @@ func (sc *SiaStratumClient) subscribeToStratumJobNotifications() {
 }
 
 func (sc *SiaStratumClient) addNewStratumJob(sj stratumJob) {
-	sjb, _ := json.Marshal(sj)
-	log.Println("DEBUG: job received from stratum server:", string(sjb))
-
+	sc.mutex.Lock()
+	defer sc.mutex.Unlock()
+	sc.currentJob = sj
 }
 
 // IntToTarget converts a big.Int to a Target.
@@ -189,11 +218,15 @@ func (sc *SiaStratumClient) setDifficulty(difficulty float64) {
 	if err != nil {
 		log.Println("ERROR Error setting difficulty to ", difficulty)
 	}
+	sc.mutex.Lock()
+	defer sc.mutex.Unlock()
 	sc.target = target
 }
 
 //GetHeaderForWork fetches new work from the SIA daemon
 func (sc *SiaStratumClient) GetHeaderForWork() (target, header []byte, err error) {
+	sc.mutex.Lock()
+	defer sc.mutex.Unlock()
 	err = errors.New("Not implemented yet")
 	return
 }

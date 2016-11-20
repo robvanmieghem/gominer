@@ -21,9 +21,9 @@ type request struct {
 // response is the stratum server's response on a Request
 // notification is an inline struct to easily decode messages in a response/notification using a json marshaller
 type response struct {
-	ID           uint64      `json:"id"`
-	Result       interface{} `json:"result"`
-	Error        error       `json:"error,string"`
+	ID           uint64        `json:"id"`
+	Result       []interface{} `json:"result"`
+	Error        error         `json:"error,string"`
 	notification `json:",inline"`
 }
 
@@ -48,7 +48,7 @@ type Client struct {
 	seq      uint64
 
 	callsMutex   sync.Mutex // protects following
-	pendingCalls map[uint64]chan interface{}
+	pendingCalls map[uint64]chan []interface{}
 
 	ErrorCallback        ErrorCallback
 	notificationHandlers map[string]NotificationHandler
@@ -131,13 +131,13 @@ func (c *Client) Listen() {
 	}
 }
 
-func (c *Client) registerRequest(requestID uint64) (cb chan interface{}) {
+func (c *Client) registerRequest(requestID uint64) (cb chan []interface{}) {
 	c.callsMutex.Lock()
 	defer c.callsMutex.Unlock()
 	if c.pendingCalls == nil {
-		c.pendingCalls = make(map[uint64]chan interface{})
+		c.pendingCalls = make(map[uint64]chan []interface{})
 	}
-	cb = make(chan interface{})
+	cb = make(chan []interface{})
 	c.pendingCalls[requestID] = cb
 	return
 }
@@ -153,7 +153,7 @@ func (c *Client) cancelRequest(requestID uint64) {
 }
 
 //Call invokes the named function, waits for it to complete, and returns its error status.
-func (c *Client) Call(serviceMethod string, args []string) (reply interface{}, err error) {
+func (c *Client) Call(serviceMethod string, args []string) (reply []interface{}, err error) {
 	r := request{Method: serviceMethod, Params: args}
 
 	c.seqmutex.Lock()
