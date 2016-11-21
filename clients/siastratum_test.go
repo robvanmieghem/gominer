@@ -21,7 +21,7 @@ func TestDifficultyToTarget(t *testing.T) {
 	}
 }
 
-func TestExtraNonce2Bytes(t *testing.T) {
+func TestExtraNonce2(t *testing.T) {
 	// Test serialization
 	en := extraNonce2{value: 1, size: 4}
 	expected := "00000001"
@@ -34,7 +34,7 @@ func TestExtraNonce2Bytes(t *testing.T) {
 	en = extraNonce2{value: 1, size: 4}
 	err := en.Increment()
 	if err != nil {
-		t.Error("No error should be returned from the increment statement")
+		t.Error("Error from the increment call:", err)
 		return
 	}
 	expected = "00000002"

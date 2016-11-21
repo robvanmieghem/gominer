@@ -29,8 +29,8 @@ type (
 type stratumJob struct {
 	JobID        string
 	PrevHash     string
-	Coinbase1    string
-	Coinbase2    string
+	Coinbase1    []byte
+	Coinbase2    []byte
 	MerkleBranch []string
 	Version      string
 	NBits        string
@@ -45,7 +45,7 @@ type SiaStratumClient struct {
 
 	mutex           sync.Mutex // protects following
 	stratumclient   *stratum.Client
-	extranonce1     string
+	extranonce1     []byte
 	extranonce2Size uint
 	target          Target
 	currentJob      stratumJob
@@ -64,6 +64,18 @@ func (en *extraNonce2) Bytes() (b []byte) {
 func (en *extraNonce2) Increment() (err error) {
 	en.value++
 	//TODO: check if does not overflow compared to the allowed size
+	return
+}
+
+func hexStringToBytes(v interface{}) (result []byte, err error) {
+	var ok bool
+	var stringValue string
+	if stringValue, ok = v.(string); !ok {
+		return nil, errors.New("Not a valid string")
+	}
+	if result, err = hex.DecodeString(stringValue); err != nil {
+		return nil, errors.New("Not a valid hexadecimal value")
+	}
 	return
 }
 
@@ -97,12 +109,12 @@ func (sc *SiaStratumClient) Start() {
 		return
 	}
 	//Keep the extranonce1 and extranonce2_size from the reply
-	var ok bool
-	if sc.extranonce1, ok = reply[1].(string); !ok {
-		log.Println("ERROR Invalid extranonce1 from stratum", reply)
+	if sc.extranonce1, err = hexStringToBytes(reply[1]); err != nil {
+		log.Println("ERROR Invalid extrannonce1 from startum")
 		sc.stratumclient.Close()
 		return
 	}
+
 	extranonce2Size, ok := reply[2].(float64)
 	if !ok {
 		log.Println("ERROR Invalid extranonce2_size from stratum", reply[2], "type", reflect.TypeOf(reply[2]))
@@ -140,6 +152,7 @@ func (sc *SiaStratumClient) subscribeToStratumJobNotifications() {
 		sj.ExtraNonce2.size = sc.extranonce2Size
 
 		var ok bool
+		var err error
 		if sj.JobID, ok = params[0].(string); !ok {
 			log.Println("ERROR Wrong job_id parameter supplied by stratum server")
 			return
@@ -148,11 +161,11 @@ func (sc *SiaStratumClient) subscribeToStratumJobNotifications() {
 			log.Println("ERROR Wrong prevhash parameter supplied by stratum server")
 			return
 		}
-		if sj.Coinbase1, ok = params[2].(string); !ok {
+		if sj.Coinbase1, err = hexStringToBytes(params[2]); err != nil {
 			log.Println("ERROR Wrong coinb1 parameter supplied by stratum server")
 			return
 		}
-		if sj.Coinbase2, ok = params[3].(string); !ok {
+		if sj.Coinbase2, err = hexStringToBytes(params[3]); err != nil {
 			log.Println("ERROR Wrong coinb2 parameter supplied by stratum server")
 			return
 		}
@@ -249,8 +262,13 @@ func (sc *SiaStratumClient) GetHeaderForWork() (target, header []byte, err error
 	target = sc.target[:]
 	en2 := sc.currentJob.ExtraNonce2.Bytes()
 	sc.currentJob.ExtraNonce2.Increment()
+	arbtx := []byte{0}
+	arbtx = append(arbtx, sc.currentJob.Coinbase1...)
+	arbtx = append(arbtx, sc.extranonce1...)
+	arbtx = append(arbtx, en2...)
+	arbtx = append(arbtx, sc.currentJob.Coinbase2...)
 
-	fmt.Println("Constructing arbitrary tx, extranonce2:", hex.EncodeToString(en2))
+	fmt.Println("Constructing arbitrary tx:", hex.EncodeToString(arbtx))
 
 	err = errors.New("Not implemented yet")
 	return
