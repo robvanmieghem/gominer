@@ -3,7 +3,6 @@ package clients
 import (
 	"encoding/hex"
 	"errors"
-	"fmt"
 	"log"
 	"math/big"
 	"reflect"
@@ -29,7 +28,7 @@ type (
 
 type stratumJob struct {
 	JobID        string
-	PrevHash     string
+	PrevHash     []byte
 	Coinbase1    []byte
 	Coinbase2    []byte
 	MerkleBranch [][]byte
@@ -144,6 +143,7 @@ func (sc *SiaStratumClient) subscribeToStratumDifficultyChanges() {
 
 func (sc *SiaStratumClient) subscribeToStratumJobNotifications() {
 	sc.stratumclient.SetNotificationHandler("mining.notify", func(params []interface{}) {
+		log.Println("New job received from stratum server")
 		if params == nil || len(params) < 9 {
 			log.Println("ERROR Wrong number of parameters supplied by stratum server")
 			return
@@ -158,7 +158,7 @@ func (sc *SiaStratumClient) subscribeToStratumJobNotifications() {
 			log.Println("ERROR Wrong job_id parameter supplied by stratum server")
 			return
 		}
-		if sj.PrevHash, ok = params[1].(string); !ok {
+		if sj.PrevHash, err = hexStringToBytes(params[1]); err != nil {
 			log.Println("ERROR Wrong prevhash parameter supplied by stratum server")
 			return
 		}
@@ -259,11 +259,16 @@ func (sc *SiaStratumClient) GetHeaderForWork() (target, header []byte, err error
 	sc.mutex.Lock()
 	defer sc.mutex.Unlock()
 
+	if sc.currentJob.JobID == "" {
+		err = errors.New("No job received from stratum server yet")
+	}
+
 	target = sc.target[:]
 
 	//Create the arbitrary transaction
 	en2 := sc.currentJob.ExtraNonce2.Bytes()
-	sc.currentJob.ExtraNonce2.Increment()
+	err = sc.currentJob.ExtraNonce2.Increment()
+
 	arbtx := []byte{0}
 	arbtx = append(arbtx, sc.currentJob.Coinbase1...)
 	arbtx = append(arbtx, sc.extranonce1...)
@@ -278,9 +283,13 @@ func (sc *SiaStratumClient) GetHeaderForWork() (target, header []byte, err error
 		m = append(m, merkleRoot[:]...)
 		merkleRoot = blake2b.Sum256(m)
 	}
-	fmt.Println("Creating merkle root ", hex.EncodeToString(merkleRoot[:]))
 
-	err = errors.New("Not implemented yet")
+	//Construct the header
+	header = make([]byte, 0, 80)
+	header = append(header, sc.currentJob.PrevHash...)
+	header = append(header, []byte{0, 0, 0, 0, 0, 0, 0, 0}[:]...) //empty nonce
+	header = append(header, merkleRoot[:]...)
+
 	return
 }
 
