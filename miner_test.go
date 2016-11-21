@@ -56,7 +56,7 @@ func TestMine(t *testing.T) {
 	workChannel := make(chan *MiningWork, len(provenSolutions)+1)
 
 	for _, provenSolution := range provenSolutions {
-		workChannel <- &MiningWork{provenSolution.workHeader, provenSolution.offset}
+		workChannel <- &MiningWork{provenSolution.workHeader, provenSolution.offset, nil}
 	}
 	close(workChannel)
 	var hashRateReportsChannel = make(chan *HashRateReport, len(provenSolutions)+1)
@@ -84,7 +84,7 @@ type submittedHeaderValidator struct {
 }
 
 //SubmitHeader stores solved so they can later be validated after the testrun
-func (v *submittedHeaderValidator) SubmitHeader(header []byte) (err error) {
+func (v *submittedHeaderValidator) SubmitHeader(header []byte, job interface{}) (err error) {
 	v.submittedHeaders <- header
 	return
 }

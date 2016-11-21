@@ -12,13 +12,13 @@ import (
 //HeaderReporter defines the required method a SIA client or pool client should implement for miners to be able to report solved headers
 type HeaderReporter interface {
 	//SubmitHeader reports a solved header
-	SubmitHeader(header []byte) (err error)
+	SubmitHeader(header []byte, job interface{}) (err error)
 }
 
 //HeaderProvider supplies headers for a miner to mine on
 type HeaderProvider interface {
 	//GetHeaderForWork providers a header to mine on
-	GetHeaderForWork() (target, header []byte, err error)
+	GetHeaderForWork() (target, header []byte, job interface{}, err error)
 }
 
 // SiaClient is the Definition a client towards the sia network
@@ -31,9 +31,9 @@ type SiaClient interface {
 }
 
 // NewSiaClient creates a new SiadClient given a '[stratum+tcp://]host:port' connectionstring
-func NewSiaClient(connectionstring string) (sc SiaClient) {
+func NewSiaClient(connectionstring, pooluser string) (sc SiaClient) {
 	if strings.HasPrefix(connectionstring, "stratum+tcp://") {
-		sc = &SiaStratumClient{connectionstring: strings.TrimPrefix(connectionstring, "stratum+tcp://")}
+		sc = &SiaStratumClient{connectionstring: strings.TrimPrefix(connectionstring, "stratum+tcp://"), User: pooluser}
 	} else {
 		s := SiadClient{}
 		s.siadurl = "http://" + connectionstring + "/miner/header"
@@ -65,7 +65,7 @@ func decodeMessage(resp *http.Response) (msg string, err error) {
 func (sc *SiadClient) Start() {}
 
 //GetHeaderForWork fetches new work from the SIA daemon
-func (sc *SiadClient) GetHeaderForWork() (target, header []byte, err error) {
+func (sc *SiadClient) GetHeaderForWork() (target, header []byte, job interface{}, err error) {
 	client := &http.Client{}
 
 	req, err := http.NewRequest("GET", sc.siadurl, nil)
@@ -110,7 +110,7 @@ func (sc *SiadClient) GetHeaderForWork() (target, header []byte, err error) {
 }
 
 //SubmitHeader reports a solved header to the SIA daemon
-func (sc *SiadClient) SubmitHeader(header []byte) (err error) {
+func (sc *SiadClient) SubmitHeader(header []byte, job interface{}) (err error) {
 	req, err := http.NewRequest("POST", sc.siadurl, bytes.NewReader(header))
 	if err != nil {
 		return

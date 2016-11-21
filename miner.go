@@ -18,6 +18,7 @@ type HashRateReport struct {
 type MiningWork struct {
 	Header []byte
 	Offset int
+	Job    interface{}
 }
 
 // Miner actually mines :-)
@@ -127,7 +128,7 @@ func (miner *Miner) mine() {
 				header[i+32] = nonceOut[i]
 			}
 			go func() {
-				if e := miner.siad.SubmitHeader(header); e != nil {
+				if e := miner.siad.SubmitHeader(header, work.Job); e != nil {
 					log.Println(miner.minerID, "- Error submitting solution -", e)
 				}
 			}()

@@ -25,7 +25,7 @@ const maxUint32 = int64(^uint32(0))
 func createWork(siaclient clients.SiaClient, miningWorkChannel chan *MiningWork, nrOfMiningDevices int, globalItemSize int) {
 	siaclient.Start()
 	for {
-		target, header, err := siaclient.GetHeaderForWork()
+		target, header, job, err := siaclient.GetHeaderForWork()
 
 		if err != nil {
 			log.Println("ERROR fetching work -", err)
@@ -40,7 +40,7 @@ func createWork(siaclient clients.SiaClient, miningWorkChannel chan *MiningWork,
 		// If the GetHeaderForWork call took too long, it might be that no work is generated at all
 		// Only generate nonces for a 32 bit space (since gpu's are mostly 32 bit)
 		for i := int64(0); i*int64(globalItemSize) < (maxUint32 - int64(globalItemSize)); i++ {
-			miningWorkChannel <- &MiningWork{header, int(i) * globalItemSize}
+			miningWorkChannel <- &MiningWork{header, int(i) * globalItemSize, job}
 		}
 	}
 }
@@ -50,6 +50,7 @@ func main() {
 	useCPU := flag.Bool("cpu", false, "If set, also use the CPU for mining, only GPU's are used by default")
 	flag.IntVar(&intensity, "I", intensity, "Intensity")
 	siadHost := flag.String("url", "localhost:9980", "siad host and port, for stratum servers, use `stratum+tcp://<host>:<port>`")
+	pooluser := flag.String("user", "payoutaddress.rigname", "username, most stratum servers take this in the form [payoutaddress].[rigname]")
 	excludedGPUs := flag.String("E", "", "Exclude GPU's: comma separated list of devicenumbers")
 	flag.Parse()
 
@@ -58,7 +59,7 @@ func main() {
 		os.Exit(0)
 	}
 
-	siaclient := clients.NewSiaClient(*siadHost)
+	siaclient := clients.NewSiaClient(*siadHost, *pooluser)
 
 	if *useCPU {
 		devicesTypesForMining = cl.DeviceTypeAll

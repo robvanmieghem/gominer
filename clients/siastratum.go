@@ -42,6 +42,7 @@ type stratumJob struct {
 //SiaStratumClient is a sia client using the stratum protocol
 type SiaStratumClient struct {
 	connectionstring string
+	User             string
 
 	mutex           sync.Mutex // protects following
 	stratumclient   *stratum.Client
@@ -255,9 +256,11 @@ func (sc *SiaStratumClient) setDifficulty(difficulty float64) {
 }
 
 //GetHeaderForWork fetches new work from the SIA daemon
-func (sc *SiaStratumClient) GetHeaderForWork() (target, header []byte, err error) {
+func (sc *SiaStratumClient) GetHeaderForWork() (target, header []byte, job interface{}, err error) {
 	sc.mutex.Lock()
 	defer sc.mutex.Unlock()
+
+	job = sc.currentJob
 
 	if sc.currentJob.JobID == "" {
 		err = errors.New("No job received from stratum server yet")
@@ -294,6 +297,16 @@ func (sc *SiaStratumClient) GetHeaderForWork() (target, header []byte, err error
 }
 
 //SubmitHeader reports a solved header to the SIA daemon
-func (sc *SiaStratumClient) SubmitHeader(header []byte) (err error) {
+func (sc *SiaStratumClient) SubmitHeader(header []byte, job interface{}) (err error) {
+	sj, _ := job.(stratumJob)
+	nonce := hex.EncodeToString(header[32:40])
+	sc.mutex.Lock()
+	defer sc.mutex.Unlock()
+	encodedExtraNonce2 := hex.EncodeToString(sj.ExtraNonce2.Bytes())
+	result, err := sc.stratumclient.Call("mining.submit", []string{sc.User, sj.JobID, encodedExtraNonce2, sj.NTime, nonce})
+	if err != nil {
+		return
+	}
+	log.Println(result)
 	return
 }
