@@ -9,6 +9,7 @@ import (
 	"reflect"
 	"sync"
 
+	"github.com/dchest/blake2b"
 	"github.com/robvanmieghem/gominer/clients/stratum"
 )
 
@@ -31,7 +32,7 @@ type stratumJob struct {
 	PrevHash     string
 	Coinbase1    []byte
 	Coinbase2    []byte
-	MerkleBranch []string
+	MerkleBranch [][]byte
 	Version      string
 	NBits        string
 	NTime        string
@@ -176,10 +177,9 @@ func (sc *SiaStratumClient) subscribeToStratumJobNotifications() {
 			log.Println("ERROR Wrong merkle_branch parameter supplied by stratum server")
 			return
 		}
-		sj.MerkleBranch = make([]string, len(merklebranch), len(merklebranch))
+		sj.MerkleBranch = make([][]byte, len(merklebranch), len(merklebranch))
 		for i, branch := range merklebranch {
-			sj.MerkleBranch[i], ok = branch.(string)
-			if !ok {
+			if sj.MerkleBranch[i], err = hexStringToBytes(branch); err != nil {
 				log.Println("ERROR Wrong merkle_branch parameter supplied by stratum server")
 				return
 			}
@@ -260,6 +260,8 @@ func (sc *SiaStratumClient) GetHeaderForWork() (target, header []byte, err error
 	defer sc.mutex.Unlock()
 
 	target = sc.target[:]
+
+	//Create the arbitrary transaction
 	en2 := sc.currentJob.ExtraNonce2.Bytes()
 	sc.currentJob.ExtraNonce2.Increment()
 	arbtx := []byte{0}
@@ -267,8 +269,16 @@ func (sc *SiaStratumClient) GetHeaderForWork() (target, header []byte, err error
 	arbtx = append(arbtx, sc.extranonce1...)
 	arbtx = append(arbtx, en2...)
 	arbtx = append(arbtx, sc.currentJob.Coinbase2...)
+	arbtxHash := blake2b.Sum256(arbtx)
 
-	fmt.Println("Constructing arbitrary tx:", hex.EncodeToString(arbtx))
+	//Construct the merkleroot from the arbitrary transaction and the merklebranches
+	merkleRoot := arbtxHash
+	for _, h := range sc.currentJob.MerkleBranch {
+		m := append([]byte{1}[:], h...)
+		m = append(m, merkleRoot[:]...)
+		merkleRoot = blake2b.Sum256(m)
+	}
+	fmt.Println("Creating merkle root ", hex.EncodeToString(merkleRoot[:]))
 
 	err = errors.New("Not implemented yet")
 	return
