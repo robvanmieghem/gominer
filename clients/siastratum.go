@@ -264,6 +264,7 @@ func (sc *SiaStratumClient) GetHeaderForWork() (target, header []byte, job inter
 
 	if sc.currentJob.JobID == "" {
 		err = errors.New("No job received from stratum server yet")
+		return
 	}
 
 	target = sc.target[:]

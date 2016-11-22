@@ -31,14 +31,14 @@ func TestExtraNonce2(t *testing.T) {
 	}
 
 	//Test increment
-	en = extraNonce2{value: 1, size: 4}
-	err := en.Increment()
+	sj := stratumJob{ExtraNonce2: extraNonce2{value: 1, size: 4}}
+	err := sj.ExtraNonce2.Increment()
 	if err != nil {
 		t.Error("Error from the increment call:", err)
 		return
 	}
 	expected = "00000002"
-	result = hex.EncodeToString(en.Bytes())
+	result = hex.EncodeToString(sj.ExtraNonce2.Bytes())
 	if expected != result {
 		t.Error(result, "returned instead of", expected)
 	}
