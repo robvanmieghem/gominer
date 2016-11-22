@@ -34,7 +34,7 @@ type stratumJob struct {
 	MerkleBranch [][]byte
 	Version      string
 	NBits        string
-	NTime        string
+	NTime        []byte
 	CleanJobs    bool
 	ExtraNonce2  extraNonce2
 }
@@ -194,7 +194,7 @@ func (sc *SiaStratumClient) subscribeToStratumJobNotifications() {
 			log.Println("ERROR Wrong nbits parameter supplied by stratum server")
 			return
 		}
-		if sj.NTime, ok = params[7].(string); !ok {
+		if sj.NTime, err = hexStringToBytes(params[7]); err != nil {
 			log.Println("ERROR Wrong ntime parameter supplied by stratum server")
 			return
 		}
@@ -291,6 +291,7 @@ func (sc *SiaStratumClient) GetHeaderForWork() (target, header []byte, job inter
 	header = make([]byte, 0, 80)
 	header = append(header, sc.currentJob.PrevHash...)
 	header = append(header, []byte{0, 0, 0, 0, 0, 0, 0, 0}[:]...) //empty nonce
+	header = append(header, sc.currentJob.NTime...)
 	header = append(header, merkleRoot[:]...)
 
 	return
@@ -303,7 +304,8 @@ func (sc *SiaStratumClient) SubmitHeader(header []byte, job interface{}) (err er
 	sc.mutex.Lock()
 	defer sc.mutex.Unlock()
 	encodedExtraNonce2 := hex.EncodeToString(sj.ExtraNonce2.Bytes())
-	result, err := sc.stratumclient.Call("mining.submit", []string{sc.User, sj.JobID, encodedExtraNonce2, sj.NTime, nonce})
+	nTime := hex.EncodeToString(sj.NTime)
+	result, err := sc.stratumclient.Call("mining.submit", []string{sc.User, sj.JobID, encodedExtraNonce2, nTime, nonce})
 	if err != nil {
 		return
 	}
