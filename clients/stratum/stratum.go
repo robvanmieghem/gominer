@@ -23,7 +23,7 @@ type request struct {
 type response struct {
 	ID           uint64        `json:"id"`
 	Result       []interface{} `json:"result"`
-	Error        error         `json:"error,string"`
+	Error        []interface{} `json:"error"`
 	notification `json:",inline"`
 }
 
@@ -48,7 +48,7 @@ type Client struct {
 	seq      uint64
 
 	callsMutex   sync.Mutex // protects following
-	pendingCalls map[uint64]chan []interface{}
+	pendingCalls map[uint64]chan interface{}
 
 	ErrorCallback        ErrorCallback
 	notificationHandlers map[string]NotificationHandler
@@ -100,8 +100,18 @@ func (c *Client) dispatch(r response) {
 	c.callsMutex.Lock()
 	defer c.callsMutex.Unlock()
 	cb, found := c.pendingCalls[r.ID]
+	var result interface{}
+	if r.Error != nil {
+		message := ""
+		if len(r.Error) >= 2 {
+			message, _ = r.Error[1].(string)
+		}
+		result = errors.New(message)
+	} else {
+		result = r.Result
+	}
 	if found {
-		cb <- r.Result
+		cb <- result
 	}
 }
 
@@ -131,13 +141,13 @@ func (c *Client) Listen() {
 	}
 }
 
-func (c *Client) registerRequest(requestID uint64) (cb chan []interface{}) {
+func (c *Client) registerRequest(requestID uint64) (cb chan interface{}) {
 	c.callsMutex.Lock()
 	defer c.callsMutex.Unlock()
 	if c.pendingCalls == nil {
-		c.pendingCalls = make(map[uint64]chan []interface{})
+		c.pendingCalls = make(map[uint64]chan interface{})
 	}
-	cb = make(chan []interface{})
+	cb = make(chan interface{})
 	c.pendingCalls[requestID] = cb
 	return
 }
@@ -166,6 +176,8 @@ func (c *Client) Call(serviceMethod string, args []string) (reply []interface{},
 		return
 	}
 	call := c.registerRequest(r.ID)
+	defer c.cancelRequest(r.ID)
+
 	rawmsg = append(rawmsg, []byte("\n")...)
 	_, err = c.socket.Write(rawmsg)
 	if err != nil {
@@ -177,10 +189,13 @@ func (c *Client) Call(serviceMethod string, args []string) (reply []interface{},
 		time.Sleep(10 * time.Second)
 		c.cancelRequest(r.ID)
 	}()
-	reply = <-call
-	if reply == nil {
+	result := <-call
+
+	if result == nil {
 		err = errors.New("Timeout")
+		return
 	}
-	c.cancelRequest(r.ID)
+	reply, _ = result.([]interface{})
+	err, _ = result.(error)
 	return
 }
