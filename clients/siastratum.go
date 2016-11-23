@@ -313,10 +313,9 @@ func (sc *SiaStratumClient) SubmitHeader(header []byte, job interface{}) (err er
 	defer sc.mutex.Unlock()
 	encodedExtraNonce2 := hex.EncodeToString(sj.ExtraNonce2.Bytes())
 	nTime := hex.EncodeToString(sj.NTime)
-	result, err := sc.stratumclient.Call("mining.submit", []string{sc.User, sj.JobID, encodedExtraNonce2, nTime, nonce})
+	_, err = sc.stratumclient.Call("mining.submit", []string{sc.User, sj.JobID, encodedExtraNonce2, nTime, nonce})
 	if err != nil {
 		return
 	}
-	log.Println(result)
 	return
 }
