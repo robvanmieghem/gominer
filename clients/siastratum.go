@@ -103,12 +103,19 @@ func (sc *SiaStratumClient) Start() {
 
 	//Subscribe for mining
 	//Close the connection on an error will cause the client to generate an error, resulting in te errorhandler to be triggered
-	reply, err := sc.stratumclient.Call("mining.subscribe", []string{})
-	if err != nil || len(reply) < 3 {
-		log.Println("ERROR Invalid response from stratum", reply)
+	result, err := sc.stratumclient.Call("mining.subscribe", []string{"gominer"})
+	if err != nil {
+		log.Println("ERROR Error in response from stratum", err)
 		sc.stratumclient.Close()
 		return
 	}
+	reply, ok := result.([]interface{})
+	if !ok || len(reply) < 3 {
+		log.Println("ERROR Invalid response from stratum", result)
+		sc.stratumclient.Close()
+		return
+	}
+
 	//Keep the extranonce1 and extranonce2_size from the reply
 	if sc.extranonce1, err = hexStringToBytes(reply[1]); err != nil {
 		log.Println("ERROR Invalid extrannonce1 from startum")

@@ -22,7 +22,7 @@ type request struct {
 // notification is an inline struct to easily decode messages in a response/notification using a json marshaller
 type response struct {
 	ID           uint64        `json:"id"`
-	Result       []interface{} `json:"result"`
+	Result       interface{}   `json:"result"`
 	Error        []interface{} `json:"error"`
 	notification `json:",inline"`
 }
@@ -163,7 +163,7 @@ func (c *Client) cancelRequest(requestID uint64) {
 }
 
 //Call invokes the named function, waits for it to complete, and returns its error status.
-func (c *Client) Call(serviceMethod string, args []string) (reply []interface{}, err error) {
+func (c *Client) Call(serviceMethod string, args []string) (reply interface{}, err error) {
 	r := request{Method: serviceMethod, Params: args}
 
 	c.seqmutex.Lock()
@@ -189,13 +189,12 @@ func (c *Client) Call(serviceMethod string, args []string) (reply []interface{},
 		time.Sleep(10 * time.Second)
 		c.cancelRequest(r.ID)
 	}()
-	result := <-call
+	reply = <-call
 
-	if result == nil {
+	if reply == nil {
 		err = errors.New("Timeout")
 		return
 	}
-	reply, _ = result.([]interface{})
-	err, _ = result.(error)
+	err, _ = reply.(error)
 	return
 }
