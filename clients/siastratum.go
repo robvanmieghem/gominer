@@ -305,6 +305,14 @@ func (sc *SiaStratumClient) GetHeaderForWork() (target, header []byte, job inter
 	return
 }
 
+//NeedNewHeader returns true if a new job is present
+func (sc *SiaStratumClient) NeedNewHeader(job interface{}) bool {
+	sj, _ := job.(stratumJob)
+	sc.mutex.Lock()
+	defer sc.mutex.Unlock()
+	return sj.JobID != sc.currentJob.JobID
+}
+
 //SubmitHeader reports a solved header to the SIA daemon
 func (sc *SiaStratumClient) SubmitHeader(header []byte, job interface{}) (err error) {
 	sj, _ := job.(stratumJob)

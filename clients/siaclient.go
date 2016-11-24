@@ -19,6 +19,8 @@ type HeaderReporter interface {
 type HeaderProvider interface {
 	//GetHeaderForWork providers a header to mine on
 	GetHeaderForWork() (target, header []byte, job interface{}, err error)
+	//NeedNewHeader indicates if the current header should be abandoned
+	NeedNewHeader(job interface{}) bool
 }
 
 // SiaClient is the Definition a client towards the sia network
@@ -59,6 +61,11 @@ func decodeMessage(resp *http.Response) (msg string, err error) {
 		msg = data.Message
 	}
 	return
+}
+
+//NeedNewHeader always returns false since there is no signalling or long polling is supported from the siad api
+func (sc *SiadClient) NeedNewHeader(job interface{}) bool {
+	return false
 }
 
 //Start does nothing

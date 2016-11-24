@@ -36,10 +36,13 @@ func createWork(siaclient clients.SiaClient, miningWorkChannel chan *MiningWork,
 		for i := 0; i < 8; i++ {
 			header[i+32] = target[7-i]
 		}
-		//Fill the workchannel with work for the requested number of secondsOfWorkPerRequestedHeader
-		// If the GetHeaderForWork call took too long, it might be that no work is generated at all
+		//Fill the workchannel with work
 		// Only generate nonces for a 32 bit space (since gpu's are mostly 32 bit)
 		for i := int64(0); i*int64(globalItemSize) < (maxUint32 - int64(globalItemSize)); i++ {
+			//Do not continue mining the 32 bit nonce space if a new job is ready for mining
+			if siaclient.NeedNewHeader(job) {
+				break
+			}
 			miningWorkChannel <- &MiningWork{header, int(i) * globalItemSize, job}
 		}
 	}
@@ -93,7 +96,7 @@ func main() {
 	}
 
 	//Start fetching work
-	workChannel := make(chan *MiningWork, nrOfMiningDevices*4)
+	workChannel := make(chan *MiningWork, nrOfMiningDevices)
 	go createWork(siaclient, workChannel, nrOfMiningDevices, globalItemSize)
 
 	//Start mining routines
