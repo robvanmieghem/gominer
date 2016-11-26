@@ -51,6 +51,8 @@ type SiaStratumClient struct {
 	target              Target
 	currentJob          stratumJob
 	deprecationChannels map[string]chan bool
+
+	DeprecatedJobCall DeprecatedJobCall
 }
 
 //Bytes is a bigendian representation of the extranonce
@@ -88,6 +90,15 @@ func (sc *SiaStratumClient) deprecateOutstandingJobs() {
 		close(deprecatedJob)
 		delete(sc.deprecationChannels, jobid)
 	}
+	call := sc.DeprecatedJobCall
+	if call != nil {
+		go call()
+	}
+}
+
+//SetDeprecatedJobCall sets the function to be called when the previous jobs should be abandoned
+func (sc *SiaStratumClient) SetDeprecatedJobCall(call DeprecatedJobCall) {
+	sc.DeprecatedJobCall = call
 }
 
 //Start connects to the stratumserver and processes the notifications

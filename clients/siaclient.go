@@ -22,6 +22,10 @@ type HeaderProvider interface {
 	GetHeaderForWork() (target, header []byte, deprecationChannel chan bool, job interface{}, err error)
 }
 
+//DeprecatedJobCall is a function that can be registered on a client to be executed when
+// the server indicates that all previous jobs should be abandoned
+type DeprecatedJobCall func()
+
 // SiaClient is the Definition a client towards the sia network
 type SiaClient interface {
 	HeaderProvider
@@ -29,6 +33,8 @@ type SiaClient interface {
 	//Start connects to a sia daemon and starts supplying valid headers
 	// It can be empty in case of a "getwork" implementation or maintain a tcp connection in case of stratum for example
 	Start()
+	//SetDeprecatedJobCall sets the function to be called when the previous jobs should be abandoned
+	SetDeprecatedJobCall(call DeprecatedJobCall)
 }
 
 // NewSiaClient creates a new SiadClient given a '[stratum+tcp://]host:port' connectionstring
@@ -64,6 +70,9 @@ func decodeMessage(resp *http.Response) (msg string, err error) {
 
 //Start does nothing
 func (sc *SiadClient) Start() {}
+
+//SetDeprecatedJobCall does nothing
+func (sc *SiadClient) SetDeprecatedJobCall(call DeprecatedJobCall) {}
 
 //GetHeaderForWork fetches new work from the SIA daemon
 func (sc *SiadClient) GetHeaderForWork() (target []byte, header []byte, deprecationChannel chan bool, job interface{}, err error) {
