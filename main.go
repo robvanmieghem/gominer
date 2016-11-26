@@ -49,11 +49,12 @@ func createWork(siaclient clients.SiaClient, miningWorkChannel chan *MiningWork,
 		}
 		//Fill the workchannel with work
 		// Only generate nonces for a 32 bit space (since gpu's are mostly 32 bit)
+	nonce32loop:
 		for i := int64(0); i*int64(globalItemSize) < (maxUint32 - int64(globalItemSize)); i++ {
 			//Do not continue mining the 32 bit nonce space if the current job is deprecated
 			select {
 			case <-deprecationChannel:
-				break
+				break nonce32loop
 			default:
 			}
 
