@@ -25,7 +25,7 @@ const maxUint32 = int64(^uint32(0))
 func createWork(siaclient clients.SiaClient, miningWorkChannel chan *MiningWork, nrOfMiningDevices int, globalItemSize int) {
 	siaclient.Start()
 	for {
-		target, header, job, err := siaclient.GetHeaderForWork()
+		target, header, jobStillValid, job, err := siaclient.GetHeaderForWork()
 
 		if err != nil {
 			log.Println("ERROR fetching work -", err)
@@ -39,10 +39,12 @@ func createWork(siaclient clients.SiaClient, miningWorkChannel chan *MiningWork,
 		//Fill the workchannel with work
 		// Only generate nonces for a 32 bit space (since gpu's are mostly 32 bit)
 		for i := int64(0); i*int64(globalItemSize) < (maxUint32 - int64(globalItemSize)); i++ {
-			//Do not continue mining the 32 bit nonce space if a new job is ready for mining
-			if siaclient.NeedNewHeader(job) {
-				break
+			//Do not continue mining the 32 bit nonce space if the current job is deprecated
+			select {
+			case <-jobStillValid:
+			default:
 			}
+
 			miningWorkChannel <- &MiningWork{header, int(i) * globalItemSize, job}
 		}
 	}

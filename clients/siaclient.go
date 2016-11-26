@@ -18,9 +18,8 @@ type HeaderReporter interface {
 //HeaderProvider supplies headers for a miner to mine on
 type HeaderProvider interface {
 	//GetHeaderForWork providers a header to mine on
-	GetHeaderForWork() (target, header []byte, job interface{}, err error)
-	//NeedNewHeader indicates if the current header should be abandoned
-	NeedNewHeader(job interface{}) bool
+	// the deprecationChannel is closed when the job should be abandoned
+	GetHeaderForWork() (target, header []byte, deprecationChannel chan bool, job interface{}, err error)
 }
 
 // SiaClient is the Definition a client towards the sia network
@@ -63,16 +62,14 @@ func decodeMessage(resp *http.Response) (msg string, err error) {
 	return
 }
 
-//NeedNewHeader always returns false since there is no signalling or long polling is supported from the siad api
-func (sc *SiadClient) NeedNewHeader(job interface{}) bool {
-	return false
-}
-
 //Start does nothing
 func (sc *SiadClient) Start() {}
 
 //GetHeaderForWork fetches new work from the SIA daemon
-func (sc *SiadClient) GetHeaderForWork() (target, header []byte, job interface{}, err error) {
+func (sc *SiadClient) GetHeaderForWork() (target []byte, header []byte, deprecationChannel chan bool, job interface{}, err error) {
+	//the deprecationChannel is not used but return a valid channel anyway
+	deprecationChannel = make(chan bool)
+
 	client := &http.Client{}
 
 	req, err := http.NewRequest("GET", sc.siadurl, nil)

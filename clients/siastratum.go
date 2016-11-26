@@ -44,12 +44,13 @@ type SiaStratumClient struct {
 	connectionstring string
 	User             string
 
-	mutex           sync.Mutex // protects following
-	stratumclient   *stratum.Client
-	extranonce1     []byte
-	extranonce2Size uint
-	target          Target
-	currentJob      stratumJob
+	mutex               sync.Mutex // protects following
+	stratumclient       *stratum.Client
+	extranonce1         []byte
+	extranonce2Size     uint
+	target              Target
+	currentJob          stratumJob
+	deprecationChannels map[string]chan bool
 }
 
 //Bytes is a bigendian representation of the extranonce
@@ -80,12 +81,26 @@ func hexStringToBytes(v interface{}) (result []byte, err error) {
 	return
 }
 
+//deprecateOutstandingJobs closes all deprecationChannels and removes them from the list
+// This method is not threadsafe
+func (sc *SiaStratumClient) deprecateOutstandingJobs() {
+	for jobid, deprecatedJob := range sc.deprecationChannels {
+		close(deprecatedJob)
+		delete(sc.deprecationChannels, jobid)
+	}
+}
+
 //Start connects to the stratumserver and processes the notifications
 func (sc *SiaStratumClient) Start() {
 	sc.mutex.Lock()
 	defer func() {
 		sc.mutex.Unlock()
 	}()
+	if sc.deprecationChannels != nil {
+		sc.deprecateOutstandingJobs()
+	} else {
+		sc.deprecationChannels = make(map[string]chan bool)
+	}
 	sc.stratumclient = &stratum.Client{}
 	//In case of an error, drop the current stratumclient and restart
 	sc.stratumclient.ErrorCallback = func(err error) {
@@ -158,6 +173,7 @@ func (sc *SiaStratumClient) subscribeToStratumJobNotifications() {
 		}
 
 		sj := stratumJob{}
+
 		sj.ExtraNonce2.size = sc.extranonce2Size
 
 		var ok bool
@@ -217,6 +233,10 @@ func (sc *SiaStratumClient) addNewStratumJob(sj stratumJob) {
 	sc.mutex.Lock()
 	defer sc.mutex.Unlock()
 	sc.currentJob = sj
+	if sj.CleanJobs {
+		sc.deprecateOutstandingJobs()
+	}
+	sc.deprecationChannels[sj.JobID] = make(chan bool)
 }
 
 // IntToTarget converts a big.Int to a Target.
@@ -263,16 +283,17 @@ func (sc *SiaStratumClient) setDifficulty(difficulty float64) {
 }
 
 //GetHeaderForWork fetches new work from the SIA daemon
-func (sc *SiaStratumClient) GetHeaderForWork() (target, header []byte, job interface{}, err error) {
+func (sc *SiaStratumClient) GetHeaderForWork() (target, header []byte, deprecationChannel chan bool, job interface{}, err error) {
 	sc.mutex.Lock()
 	defer sc.mutex.Unlock()
 
 	job = sc.currentJob
-
 	if sc.currentJob.JobID == "" {
 		err = errors.New("No job received from stratum server yet")
 		return
 	}
+
+	deprecationChannel = sc.deprecationChannels[sc.currentJob.JobID]
 
 	target = sc.target[:]
 
