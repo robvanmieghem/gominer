@@ -25,7 +25,7 @@ const maxUint32 = int64(^uint32(0))
 func createWork(siaclient clients.SiaClient, miningWorkChannel chan *MiningWork, nrOfMiningDevices int, globalItemSize int) {
 	siaclient.Start()
 	for {
-		target, header, jobStillValid, job, err := siaclient.GetHeaderForWork()
+		target, header, deprecationChannel, job, err := siaclient.GetHeaderForWork()
 
 		if err != nil {
 			log.Println("ERROR fetching work -", err)
@@ -41,7 +41,8 @@ func createWork(siaclient clients.SiaClient, miningWorkChannel chan *MiningWork,
 		for i := int64(0); i*int64(globalItemSize) < (maxUint32 - int64(globalItemSize)); i++ {
 			//Do not continue mining the 32 bit nonce space if the current job is deprecated
 			select {
-			case <-jobStillValid:
+			case <-deprecationChannel:
+				break
 			default:
 			}
 
