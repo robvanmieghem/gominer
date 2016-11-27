@@ -15,7 +15,7 @@ import (
 )
 
 //Version is the released version string of gominer
-var Version = "0.5"
+var Version = "0.6-Dev"
 
 var intensity = 28
 var devicesTypesForMining = cl.DeviceTypeGPU
