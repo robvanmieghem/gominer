@@ -23,11 +23,11 @@ var devicesTypesForMining = cl.DeviceTypeGPU
 const maxUint32 = int64(^uint32(0))
 
 func createWork(siaclient clients.SiaClient, miningWorkChannel chan *MiningWork, nrOfMiningDevices int, globalItemSize int) {
-	//Register a function to clear the generated work if a job gets deprecated
-	// It does not matter if we clear too many, is worse to work on a stale job
+	//Register a function to clear the generated work if a job gets deprecated.
+	// It does not matter if we clear too many, it is worse to work on a stale job.
 	siaclient.SetDeprecatedJobCall(func() {
 		numberOfWorkItemsToRemove := len(miningWorkChannel)
-		for i := 0; i < numberOfWorkItemsToRemove; i++ {
+		for i := 0; i <= numberOfWorkItemsToRemove; i++ {
 			<-miningWorkChannel
 		}
 	})
