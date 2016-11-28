@@ -31,7 +31,7 @@ type stratumJob struct {
 	NBits        string
 	NTime        []byte
 	CleanJobs    bool
-	ExtraNonce2  clients.ExtraNonce2
+	ExtraNonce2  stratum.ExtraNonce2
 }
 
 //StratumClient is a sia client using the stratum protocol
