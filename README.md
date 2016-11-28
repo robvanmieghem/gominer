@@ -24,6 +24,9 @@ Usage:
   -url string
     	siad host and port (default "localhost:9980")
         for stratum servers, use `stratum+tcp://<host>:<port>`
+  -user string
+        username, most stratum servers take this in the form [payoutaddress].[rigname]
+        This is optional, if solo mining sia, this is not needed
   -I int
     	Intensity (default 28)
   -E string
@@ -41,7 +44,7 @@ Stratum support is implemented as defined on https://siamining.com/stratum
 
 ## FAQ
 
-- *ERROR fetching work - Get http://localhost:9980/miner/headerforwork: dial tcp 127.0.0.1:9980: connection refused*
+- ERROR fetching work - Get http://localhost:9980/miner/headerforwork: dial tcp 127.0.0.1:9980: connection refused
 
   Make sure `siad` is running
 
@@ -53,11 +56,11 @@ Stratum support is implemented as defined on https://siamining.com/stratum
 
   Check the sia documentation.
 
-- *You have to help me set up mining SIA*
+- You have to help me set up mining SIA
 
   No I don't
 
-- *Can you log in on my machine to configure my mining setup?*
+- Can you log in on my machine to configure my mining setup?
 
   No
 
