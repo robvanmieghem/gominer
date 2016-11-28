@@ -1,4 +1,4 @@
-package clients
+package sia
 
 import (
 	"bytes"
@@ -7,40 +7,14 @@ import (
 	"io/ioutil"
 	"net/http"
 	"strings"
+
+	"github.com/robvanmieghem/gominer/clients"
 )
 
-//HeaderReporter defines the required method a SIA client or pool client should implement for miners to be able to report solved headers
-type HeaderReporter interface {
-	//SubmitHeader reports a solved header
-	SubmitHeader(header []byte, job interface{}) (err error)
-}
-
-//HeaderProvider supplies headers for a miner to mine on
-type HeaderProvider interface {
-	//GetHeaderForWork providers a header to mine on
-	// the deprecationChannel is closed when the job should be abandoned
-	GetHeaderForWork() (target, header []byte, deprecationChannel chan bool, job interface{}, err error)
-}
-
-//DeprecatedJobCall is a function that can be registered on a client to be executed when
-// the server indicates that all previous jobs should be abandoned
-type DeprecatedJobCall func()
-
-// SiaClient is the Definition a client towards the sia network
-type SiaClient interface {
-	HeaderProvider
-	HeaderReporter
-	//Start connects to a sia daemon and starts supplying valid headers
-	// It can be empty in case of a "getwork" implementation or maintain a tcp connection in case of stratum for example
-	Start()
-	//SetDeprecatedJobCall sets the function to be called when the previous jobs should be abandoned
-	SetDeprecatedJobCall(call DeprecatedJobCall)
-}
-
-// NewSiaClient creates a new SiadClient given a '[stratum+tcp://]host:port' connectionstring
-func NewSiaClient(connectionstring, pooluser string) (sc SiaClient) {
+// NewClient creates a new SiadClient given a '[stratum+tcp://]host:port' connectionstring
+func NewClient(connectionstring, pooluser string) (sc clients.Client) {
 	if strings.HasPrefix(connectionstring, "stratum+tcp://") {
-		sc = &SiaStratumClient{connectionstring: strings.TrimPrefix(connectionstring, "stratum+tcp://"), User: pooluser}
+		sc = &StratumClient{connectionstring: strings.TrimPrefix(connectionstring, "stratum+tcp://"), User: pooluser}
 	} else {
 		s := SiadClient{}
 		s.siadurl = "http://" + connectionstring + "/miner/header"
@@ -72,7 +46,7 @@ func decodeMessage(resp *http.Response) (msg string, err error) {
 func (sc *SiadClient) Start() {}
 
 //SetDeprecatedJobCall does nothing
-func (sc *SiadClient) SetDeprecatedJobCall(call DeprecatedJobCall) {}
+func (sc *SiadClient) SetDeprecatedJobCall(call clients.DeprecatedJobCall) {}
 
 //GetHeaderForWork fetches new work from the SIA daemon
 func (sc *SiadClient) GetHeaderForWork() (target []byte, header []byte, deprecationChannel chan bool, job interface{}, err error) {

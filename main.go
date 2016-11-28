@@ -12,6 +12,9 @@ import (
 
 	"github.com/robvanmieghem/go-opencl/cl"
 	"github.com/robvanmieghem/gominer/clients"
+	"github.com/robvanmieghem/gominer/clients/sia"
+
+	"github.com/robvanmieghem/gominer/clients/zcash"
 )
 
 //Version is the released version string of gominer
@@ -22,20 +25,20 @@ var devicesTypesForMining = cl.DeviceTypeGPU
 
 const maxUint32 = int64(^uint32(0))
 
-func createWork(siaclient clients.SiaClient, miningWorkChannel chan *MiningWork, nrOfMiningDevices int, globalItemSize int) {
+func createWork(c clients.Client, miningWorkChannel chan *MiningWork, nrOfMiningDevices int, globalItemSize int) {
 	//Register a function to clear the generated work if a job gets deprecated.
 	// It does not matter if we clear too many, it is worse to work on a stale job.
-	siaclient.SetDeprecatedJobCall(func() {
+	c.SetDeprecatedJobCall(func() {
 		numberOfWorkItemsToRemove := len(miningWorkChannel)
 		for i := 0; i <= numberOfWorkItemsToRemove; i++ {
 			<-miningWorkChannel
 		}
 	})
 
-	siaclient.Start()
+	c.Start()
 
 	for {
-		target, header, deprecationChannel, job, err := siaclient.GetHeaderForWork()
+		target, header, deprecationChannel, job, err := c.GetHeaderForWork()
 
 		if err != nil {
 			log.Println("ERROR fetching work -", err)
@@ -67,7 +70,8 @@ func main() {
 	printVersion := flag.Bool("v", false, "Show version and exit")
 	useCPU := flag.Bool("cpu", false, "If set, also use the CPU for mining, only GPU's are used by default")
 	flag.IntVar(&intensity, "I", intensity, "Intensity")
-	siadHost := flag.String("url", "localhost:9980", "siad host and port, for stratum servers, use `stratum+tcp://<host>:<port>`")
+	miningAlgorithm := flag.String("algo", "sia", "Mining algorithm, can be `sia` or `zcash`")
+	host := flag.String("url", "localhost:9980", "siad host and port, for stratum servers, use `stratum+tcp://<host>:<port>`")
 	pooluser := flag.String("user", "payoutaddress.rigname", "username, most stratum servers take this in the form [payoutaddress].[rigname]")
 	excludedGPUs := flag.String("E", "", "Exclude GPU's: comma separated list of devicenumbers")
 	flag.Parse()
@@ -76,8 +80,6 @@ func main() {
 		fmt.Println("gominer version", Version)
 		os.Exit(0)
 	}
-
-	siaclient := clients.NewSiaClient(*siadHost, *pooluser)
 
 	if *useCPU {
 		devicesTypesForMining = cl.DeviceTypeAll
@@ -111,8 +113,17 @@ func main() {
 	}
 
 	//Start fetching work
+	var c clients.Client
+	if *miningAlgorithm == "zcash" {
+		log.Println("Starting zcash mining")
+		c = zcash.NewClient(*host, *pooluser)
+	} else {
+		log.Println("Starting SIA mining")
+		c = sia.NewClient(*host, *pooluser)
+	}
 	workChannel := make(chan *MiningWork, nrOfMiningDevices)
-	go createWork(siaclient, workChannel, nrOfMiningDevices, globalItemSize)
+
+	go createWork(c, workChannel, nrOfMiningDevices, globalItemSize)
 
 	//Start mining routines
 	var hashRateReportsChannel = make(chan *HashRateReport, nrOfMiningDevices*10)
@@ -126,7 +137,7 @@ func main() {
 			hashRateReports:   hashRateReportsChannel,
 			miningWorkChannel: workChannel,
 			GlobalItemSize:    globalItemSize,
-			siad:              siaclient,
+			siad:              c,
 		}
 		go miner.mine()
 	}
