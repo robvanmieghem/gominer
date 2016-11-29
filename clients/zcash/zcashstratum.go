@@ -1,6 +1,8 @@
 package zcash
 
 import (
+	"encoding/binary"
+	"encoding/hex"
 	"errors"
 	"log"
 	"strings"
@@ -12,6 +14,19 @@ import (
 
 // zcash stratum as defined on https://github.com/str4d/zips/blob/23d74b0373c824dd51c7854c0e3ea22489ba1b76/drafts/str4d-stratum/draft1.rst
 
+type stratumJob struct {
+	JobID      string
+	Version    uint32
+	PrevHash   []byte
+	MerkleRoot []byte
+	Reserved   []byte
+	Time       []byte
+	Bits       []byte
+	CleanJobs  bool
+
+	ExtraNonce2 stratum.ExtraNonce2
+}
+
 //StratumClient is a zcash client using the stratum protocol
 type StratumClient struct {
 	connectionstring string
@@ -22,6 +37,7 @@ type StratumClient struct {
 	extranonce1     []byte
 	extranonce2Size uint
 	target          []byte
+	currentJob      stratumJob
 	clients.BaseClient
 }
 
@@ -112,8 +128,68 @@ func (sc *StratumClient) subscribeToStratumTargetChanges() {
 func (sc *StratumClient) subscribeToStratumJobNotifications() {
 	sc.stratumclient.SetNotificationHandler("mining.notify", func(params []interface{}) {
 		log.Println("New job received from stratum server")
-		log.Println("Job notifications not implemented yet")
+		if params == nil || len(params) < 8 {
+			log.Println("ERROR Wrong number of parameters supplied by stratum server")
+			return
+		}
+
+		sj := stratumJob{}
+
+		sj.ExtraNonce2.Size = sc.extranonce2Size
+
+		var ok bool
+		var err error
+		if sj.JobID, ok = params[0].(string); !ok {
+			log.Println("ERROR Wrong job_id parameter supplied by stratum server")
+			return
+		}
+		versionBytes, err := stratum.HexStringToBytes(params[1])
+		if err != nil {
+			log.Println("ERROR Wrong version parameter supplied by stratum server:", params[1])
+			return
+		}
+		sj.Version = binary.LittleEndian.Uint32(versionBytes)
+		if sj.Version != 4 {
+			log.Println("ERROR Wrong version supplied by stratum server:", sj.Version)
+			return
+		}
+		if sj.PrevHash, err = stratum.HexStringToBytes(params[2]); err != nil {
+			log.Println("ERROR Wrong prevhash parameter supplied by stratum server")
+			return
+		}
+		if sj.MerkleRoot, err = stratum.HexStringToBytes(params[3]); err != nil {
+			log.Println("ERROR Wrong merkleroot parameter supplied by stratum server")
+			return
+		}
+		if sj.Reserved, err = stratum.HexStringToBytes(params[5]); err != nil {
+			log.Println("ERROR Wrong reserved parameter supplied by stratum server")
+			return
+		}
+		if sj.Time, err = stratum.HexStringToBytes(params[5]); err != nil {
+			log.Println("ERROR Wrong time parameter supplied by stratum server")
+			return
+		}
+
+		if sj.Bits, err = stratum.HexStringToBytes(params[6]); err != nil {
+			log.Println("ERROR Wrong bits parameter supplied by stratum server")
+			return
+		}
+		if sj.CleanJobs, ok = params[7].(bool); !ok {
+			log.Println("ERROR Wrong clean_jobs parameter supplied by stratum server")
+			return
+		}
+		sc.addNewStratumJob(sj)
 	})
+}
+
+func (sc *StratumClient) addNewStratumJob(sj stratumJob) {
+	sc.mutex.Lock()
+	defer sc.mutex.Unlock()
+	sc.currentJob = sj
+	if sj.CleanJobs {
+		sc.DeprecateOutstandingJobs()
+	}
+	sc.AddJobToDeprecate(sj.JobID)
 }
 
 //GetHeaderForWork fetches new work from the SIA daemon
@@ -124,6 +200,18 @@ func (sc *StratumClient) GetHeaderForWork() (target, header []byte, deprecationC
 
 //SubmitHeader reports a solved header
 func (sc *StratumClient) SubmitHeader(header []byte, job interface{}) (err error) {
-	err = errors.New("SubmitHeader not implemented for zcash stratum yet")
+	sj, _ := job.(stratumJob)
+	//TODO: extract nonce and equihash_solution from the header
+	equihashsolution := "00"
+	encodedExtraNonce2 := hex.EncodeToString(sj.ExtraNonce2.Bytes())
+	nTime := hex.EncodeToString(sj.Time)
+
+	sc.mutex.Lock()
+	c := sc.stratumclient
+	sc.mutex.Unlock()
+	_, err = c.Call("mining.submit", []string{sc.User, sj.JobID, nTime, encodedExtraNonce2, equihashsolution})
+	if err != nil {
+		return
+	}
 	return
 }

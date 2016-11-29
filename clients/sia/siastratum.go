@@ -286,11 +286,11 @@ func (sc *StratumClient) GetHeaderForWork() (target, header []byte, deprecationC
 func (sc *StratumClient) SubmitHeader(header []byte, job interface{}) (err error) {
 	sj, _ := job.(stratumJob)
 	nonce := hex.EncodeToString(header[32:40])
+	encodedExtraNonce2 := hex.EncodeToString(sj.ExtraNonce2.Bytes())
+	nTime := hex.EncodeToString(sj.NTime)
 	sc.mutex.Lock()
 	c := sc.stratumclient
 	sc.mutex.Unlock()
-	encodedExtraNonce2 := hex.EncodeToString(sj.ExtraNonce2.Bytes())
-	nTime := hex.EncodeToString(sj.NTime)
 	_, err = c.Call("mining.submit", []string{sc.User, sj.JobID, encodedExtraNonce2, nTime, nonce})
 	if err != nil {
 		return
