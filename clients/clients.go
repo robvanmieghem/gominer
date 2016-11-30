@@ -1,3 +1,4 @@
+//Package clients provides some utilities and common code for specific client implementations
 package clients
 
 //HeaderReporter defines the required method a SIA client or pool client should implement for miners to be able to report solved headers

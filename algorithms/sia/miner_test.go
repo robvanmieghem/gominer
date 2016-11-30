@@ -1,4 +1,4 @@
-package main
+package sia
 
 import (
 	"bytes"
@@ -43,7 +43,7 @@ func TestMine(t *testing.T) {
 
 	var clDevice *cl.Device
 	for _, platform := range platforms {
-		platormDevices, err := cl.GetDevices(platform, devicesTypesForMining)
+		platormDevices, err := cl.GetDevices(platform, cl.DeviceTypeGPU)
 		if err != nil {
 			log.Fatalln(err)
 		}
@@ -61,10 +61,10 @@ func TestMine(t *testing.T) {
 	close(workChannel)
 	var hashRateReportsChannel = make(chan *HashRateReport, len(provenSolutions)+1)
 	validator := newSubmittedHeaderValidator(len(provenSolutions))
-	miner := &Miner{
-		clDevice:          clDevice,
-		minerID:           0,
-		hashRateReports:   hashRateReportsChannel,
+	miner := &singleDeviceMiner{
+		ClDevice:          clDevice,
+		MinerID:           0,
+		HashRateReports:   hashRateReportsChannel,
 		GlobalItemSize:    int(math.Exp2(float64(28))),
 		miningWorkChannel: workChannel,
 		siad:              validator,

@@ -8,13 +8,10 @@ import (
 	"os"
 	"strconv"
 	"strings"
-	"time"
 
 	"github.com/robvanmieghem/go-opencl/cl"
-	"github.com/robvanmieghem/gominer/clients"
-	"github.com/robvanmieghem/gominer/clients/sia"
-
-	"github.com/robvanmieghem/gominer/clients/zcash"
+	"github.com/robvanmieghem/gominer/algorithms/sia"
+	"github.com/robvanmieghem/gominer/algorithms/zcash"
 )
 
 //Version is the released version string of gominer
@@ -22,49 +19,6 @@ var Version = "0.6-Dev"
 
 var intensity = 28
 var devicesTypesForMining = cl.DeviceTypeGPU
-
-const maxUint32 = int64(^uint32(0))
-
-func createWork(c clients.Client, miningWorkChannel chan *MiningWork, nrOfMiningDevices int, globalItemSize int) {
-	//Register a function to clear the generated work if a job gets deprecated.
-	// It does not matter if we clear too many, it is worse to work on a stale job.
-	c.SetDeprecatedJobCall(func() {
-		numberOfWorkItemsToRemove := len(miningWorkChannel)
-		for i := 0; i <= numberOfWorkItemsToRemove; i++ {
-			<-miningWorkChannel
-		}
-	})
-
-	c.Start()
-
-	for {
-		target, header, deprecationChannel, job, err := c.GetHeaderForWork()
-
-		if err != nil {
-			log.Println("ERROR fetching work -", err)
-			time.Sleep(1000 * time.Millisecond)
-			continue
-		}
-
-		//copy target to header
-		for i := 0; i < 8; i++ {
-			header[i+32] = target[7-i]
-		}
-		//Fill the workchannel with work
-		// Only generate nonces for a 32 bit space (since gpu's are mostly 32 bit)
-	nonce32loop:
-		for i := int64(0); i*int64(globalItemSize) < (maxUint32 - int64(globalItemSize)); i++ {
-			//Do not continue mining the 32 bit nonce space if the current job is deprecated
-			select {
-			case <-deprecationChannel:
-				break nonce32loop
-			default:
-			}
-
-			miningWorkChannel <- &MiningWork{header, int(i) * globalItemSize, job}
-		}
-	}
-}
 
 func main() {
 	printVersion := flag.Bool("v", false, "Show version and exit")
@@ -105,42 +59,48 @@ func main() {
 		}
 	}
 
-	nrOfMiningDevices := len(clDevices)
-
-	if nrOfMiningDevices == 0 {
+	if len(clDevices) == 0 {
 		log.Println("No suitable opencl devices found")
 		os.Exit(1)
 	}
 
-	//Start fetching work
-	var c clients.Client
-	if *miningAlgorithm == "zcash" {
-		log.Println("Starting zcash mining")
-		c = zcash.NewClient(*host, *pooluser)
-	} else {
-		log.Println("Starting SIA mining")
-		c = sia.NewClient(*host, *pooluser)
-	}
-	workChannel := make(chan *MiningWork, nrOfMiningDevices)
-
-	go createWork(c, workChannel, nrOfMiningDevices, globalItemSize)
-
-	//Start mining routines
-	var hashRateReportsChannel = make(chan *HashRateReport, nrOfMiningDevices*10)
+	//Filter the excluded devices
+	miningDevices := make(map[int]*cl.Device)
 	for i, device := range clDevices {
 		if deviceExcludedForMining(i, *excludedGPUs) {
 			continue
 		}
-		miner := &Miner{
-			clDevice:          device,
-			minerID:           i,
-			hashRateReports:   hashRateReportsChannel,
-			miningWorkChannel: workChannel,
-			GlobalItemSize:    globalItemSize,
-			siad:              c,
-		}
-		go miner.mine()
+		miningDevices[i] = device
 	}
+
+	nrOfMiningDevices := len(miningDevices)
+	var hashRateReportsChannel = make(chan *sia.HashRateReport, nrOfMiningDevices*10)
+
+	var miner *sia.Miner
+	if *miningAlgorithm == "zcash" {
+		log.Println("Starting zcash mining")
+		c := zcash.NewClient(*host, *pooluser)
+
+		miner = &sia.Miner{
+			ClDevices:       miningDevices,
+			HashRateReports: hashRateReportsChannel,
+			Intensity:       intensity,
+			GlobalItemSize:  globalItemSize,
+			Client:          c,
+		}
+	} else {
+		log.Println("Starting SIA mining")
+		c := sia.NewClient(*host, *pooluser)
+
+		miner = &sia.Miner{
+			ClDevices:       miningDevices,
+			HashRateReports: hashRateReportsChannel,
+			Intensity:       intensity,
+			GlobalItemSize:  globalItemSize,
+			Client:          c,
+		}
+	}
+	miner.Mine()
 
 	//Start printing out the hashrates of the different gpu's
 	hashRateReports := make([]float64, nrOfMiningDevices)
