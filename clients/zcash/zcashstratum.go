@@ -16,7 +16,7 @@ import (
 
 type stratumJob struct {
 	JobID      string
-	Version    uint32
+	Version    []byte
 	PrevHash   []byte
 	MerkleRoot []byte
 	Reserved   []byte
@@ -143,13 +143,12 @@ func (sc *StratumClient) subscribeToStratumJobNotifications() {
 			log.Println("ERROR Wrong job_id parameter supplied by stratum server")
 			return
 		}
-		versionBytes, err := stratum.HexStringToBytes(params[1])
-		if err != nil {
+		if sj.Version, err = stratum.HexStringToBytes(params[1]); err != nil {
 			log.Println("ERROR Wrong version parameter supplied by stratum server:", params[1])
 			return
 		}
-		sj.Version = binary.LittleEndian.Uint32(versionBytes)
-		if sj.Version != 4 {
+		v := binary.LittleEndian.Uint32(sj.Version)
+		if v != 4 {
 			log.Println("ERROR Wrong version supplied by stratum server:", sj.Version)
 			return
 		}
@@ -194,6 +193,26 @@ func (sc *StratumClient) addNewStratumJob(sj stratumJob) {
 
 //GetHeaderForWork fetches new work from the SIA daemon
 func (sc *StratumClient) GetHeaderForWork() (target, header []byte, deprecationChannel chan bool, job interface{}, err error) {
+	sc.mutex.Lock()
+	defer sc.mutex.Unlock()
+
+	job = sc.currentJob
+	if sc.currentJob.JobID == "" {
+		err = errors.New("No job received from stratum server yet")
+		return
+	}
+
+	deprecationChannel = sc.GetDeprecationChannel(sc.currentJob.JobID)
+
+	nonceLessHeader := make([]byte, 0, 108)
+	nonceLessHeader = append(nonceLessHeader, sc.currentJob.Version...)    // 4 bytes
+	nonceLessHeader = append(nonceLessHeader, sc.currentJob.PrevHash...)   // 32 bytes
+	nonceLessHeader = append(nonceLessHeader, sc.currentJob.MerkleRoot...) // 32 bytes
+	nonceLessHeader = append(nonceLessHeader, sc.currentJob.Reserved...)   // 32 bytes
+	nonceLessHeader = append(nonceLessHeader, sc.currentJob.Time...)       // 4 bytes
+	nonceLessHeader = append(nonceLessHeader, sc.currentJob.Bits...)       // 4 bytes
+
+	header = nonceLessHeader
 	err = errors.New("GetHeaderForWork not implemented for zcash stratum yet")
 	return
 }
