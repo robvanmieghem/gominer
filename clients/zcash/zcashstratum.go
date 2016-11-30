@@ -91,12 +91,17 @@ func (sc *StratumClient) Start() {
 
 	//Keep the extranonce1 and extranonce2_size from the reply
 	if sc.extranonce1, err = stratum.HexStringToBytes(reply[1]); err != nil {
-		log.Println("ERROR Invalid extrannonce1 from startum")
+		log.Println("ERROR Invalid extranonce1 from startum")
 		sc.stratumclient.Close()
 		return
 	}
 
 	sc.extranonce2Size = uint(32 - len(sc.extranonce1))
+	if sc.extranonce2Size < 15 {
+		log.Println("ERROR Incompatible server, nonce1 too long")
+		sc.stratumclient.Close()
+		return
+	}
 
 	//Authorize the miner
 	_, err = sc.stratumclient.Call("mining.authorize", []string{sc.User, ""})
@@ -204,6 +209,8 @@ func (sc *StratumClient) GetHeaderForWork() (target, header []byte, deprecationC
 
 	deprecationChannel = sc.GetDeprecationChannel(sc.currentJob.JobID)
 
+	target = sc.target
+
 	nonceLessHeader := make([]byte, 0, 108)
 	nonceLessHeader = append(nonceLessHeader, sc.currentJob.Version...)    // 4 bytes
 	nonceLessHeader = append(nonceLessHeader, sc.currentJob.PrevHash...)   // 32 bytes
@@ -212,7 +219,8 @@ func (sc *StratumClient) GetHeaderForWork() (target, header []byte, deprecationC
 	nonceLessHeader = append(nonceLessHeader, sc.currentJob.Time...)       // 4 bytes
 	nonceLessHeader = append(nonceLessHeader, sc.currentJob.Bits...)       // 4 bytes
 
-	header = nonceLessHeader
+	header = append(nonceLessHeader, sc.extranonce1...)
+
 	err = errors.New("GetHeaderForWork not implemented for zcash stratum yet")
 	return
 }
