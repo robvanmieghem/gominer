@@ -96,8 +96,8 @@ func (sc *StratumClient) Start() {
 		return
 	}
 
-	sc.extranonce2Size = uint(32 - len(sc.extranonce1))
-	if sc.extranonce2Size < 15 {
+	sc.extranonce2Size = uint(32 - numberOfZeroBytes - len(sc.extranonce1))
+	if sc.extranonce2Size < 0 {
 		log.Println("ERROR Incompatible server, nonce1 too long")
 		sc.stratumclient.Close()
 		return
@@ -211,17 +211,23 @@ func (sc *StratumClient) GetHeaderForWork() (target, header []byte, deprecationC
 
 	target = sc.target
 
-	nonceLessHeader := make([]byte, 0, 108)
-	nonceLessHeader = append(nonceLessHeader, sc.currentJob.Version...)    // 4 bytes
-	nonceLessHeader = append(nonceLessHeader, sc.currentJob.PrevHash...)   // 32 bytes
-	nonceLessHeader = append(nonceLessHeader, sc.currentJob.MerkleRoot...) // 32 bytes
-	nonceLessHeader = append(nonceLessHeader, sc.currentJob.Reserved...)   // 32 bytes
-	nonceLessHeader = append(nonceLessHeader, sc.currentJob.Time...)       // 4 bytes
-	nonceLessHeader = append(nonceLessHeader, sc.currentJob.Bits...)       // 4 bytes
+	header = make([]byte, 0, 140)
+	header = append(header, sc.currentJob.Version...)    // 4 bytes
+	header = append(header, sc.currentJob.PrevHash...)   // 32 bytes
+	header = append(header, sc.currentJob.MerkleRoot...) // 32 bytes
+	header = append(header, sc.currentJob.Reserved...)   // 32 bytes
+	header = append(header, sc.currentJob.Time...)       // 4 bytes
+	header = append(header, sc.currentJob.Bits...)       // 4 bytes
 
-	header = append(nonceLessHeader, sc.extranonce1...)
+	//Add a 32 bytes nonce
+	header = append(header, sc.extranonce1...)
+	header = append(header, sc.currentJob.ExtraNonce2.Bytes()...)
+	sc.currentJob.ExtraNonce2.Increment()
+	// Append the 12 `0` bytes
+	for i := 0; i < numberOfZeroBytes; i++ {
+		header = append(header, 0)
+	}
 
-	err = errors.New("GetHeaderForWork not implemented for zcash stratum yet")
 	return
 }
 

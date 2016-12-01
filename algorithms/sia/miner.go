@@ -6,16 +6,11 @@ import (
 
 	"github.com/robvanmieghem/go-opencl/cl"
 	"github.com/robvanmieghem/gominer/clients"
+	"github.com/robvanmieghem/gominer/mining"
 )
 
-//HashRateReport is sent from the mining routines for giving combined information as output
-type HashRateReport struct {
-	MinerID  int
-	HashRate float64
-}
-
-//MiningWork is sent to the mining routines and defines what ranges should be searched for a matching nonce
-type MiningWork struct {
+//miningWork is sent to the mining routines and defines what ranges should be searched for a matching nonce
+type miningWork struct {
 	Header []byte
 	Offset int
 	Job    interface{}
@@ -24,8 +19,8 @@ type MiningWork struct {
 // Miner actually mines :-)
 type Miner struct {
 	ClDevices         map[int]*cl.Device
-	HashRateReports   chan *HashRateReport
-	miningWorkChannel chan *MiningWork
+	HashRateReports   chan *mining.HashRateReport
+	miningWorkChannel chan *miningWork
 	//Intensity defines the GlobalItemSize in a human friendly way, the GlobalItemSize = 2^Intensity
 	Intensity      int
 	GlobalItemSize int
@@ -36,8 +31,8 @@ type Miner struct {
 type singleDeviceMiner struct {
 	ClDevice          *cl.Device
 	MinerID           int
-	HashRateReports   chan *HashRateReport
-	miningWorkChannel chan *MiningWork
+	HashRateReports   chan *mining.HashRateReport
+	miningWorkChannel chan *miningWork
 	//Intensity defines the GlobalItemSize in a human friendly way, the GlobalItemSize = 2^Intensity
 	Intensity      int
 	GlobalItemSize int
@@ -47,7 +42,7 @@ type singleDeviceMiner struct {
 //Mine spawns a seperate miner for each device defined in the CLDevices and feeds it with work
 func (m *Miner) Mine() {
 
-	m.miningWorkChannel = make(chan *MiningWork, len(m.ClDevices))
+	m.miningWorkChannel = make(chan *miningWork, len(m.ClDevices))
 	go m.createWork()
 	for minerID, device := range m.ClDevices {
 		sdm := &singleDeviceMiner{
@@ -101,7 +96,7 @@ func (m *Miner) createWork() {
 			default:
 			}
 
-			m.miningWorkChannel <- &MiningWork{header, int(i) * m.GlobalItemSize, job}
+			m.miningWorkChannel <- &miningWork{header, int(i) * m.GlobalItemSize, job}
 		}
 	}
 }
@@ -138,17 +133,11 @@ func (miner *singleDeviceMiner) mine() {
 	}
 	defer kernel.Release()
 
-	blockHeaderObj, err := context.CreateEmptyBuffer(cl.MemReadOnly, 80)
-	if err != nil {
-		log.Fatalln(miner.MinerID, "-", err)
-	}
+	blockHeaderObj := mining.CreateEmptyBuffer(context, cl.MemReadOnly, 80)
 	defer blockHeaderObj.Release()
 	kernel.SetArgBuffer(0, blockHeaderObj)
 
-	nonceOutObj, err := context.CreateEmptyBuffer(cl.MemReadWrite, 8)
-	if err != nil {
-		log.Fatalln(miner.MinerID, "-", err)
-	}
+	nonceOutObj := mining.CreateEmptyBuffer(context, cl.MemReadWrite, 8)
 	defer nonceOutObj.Release()
 	kernel.SetArgBuffer(1, nonceOutObj)
 
@@ -167,7 +156,7 @@ func (miner *singleDeviceMiner) mine() {
 	}
 	for {
 		start := time.Now()
-		var work *MiningWork
+		var work *miningWork
 		continueMining := true
 		select {
 		case work, continueMining = <-miner.miningWorkChannel:
@@ -216,7 +205,7 @@ func (miner *singleDeviceMiner) mine() {
 		}
 
 		hashRate := float64(miner.GlobalItemSize) / (time.Since(start).Seconds() * 1000000)
-		miner.HashRateReports <- &HashRateReport{miner.MinerID, hashRate}
+		miner.HashRateReports <- &mining.HashRateReport{MinerID: miner.MinerID, HashRate: hashRate}
 	}
 
 }

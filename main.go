@@ -12,6 +12,7 @@ import (
 	"github.com/robvanmieghem/go-opencl/cl"
 	"github.com/robvanmieghem/gominer/algorithms/sia"
 	"github.com/robvanmieghem/gominer/algorithms/zcash"
+	"github.com/robvanmieghem/gominer/mining"
 )
 
 //Version is the released version string of gominer
@@ -74,7 +75,7 @@ func main() {
 	}
 
 	nrOfMiningDevices := len(miningDevices)
-	var hashRateReportsChannel = make(chan *sia.HashRateReport, nrOfMiningDevices*10)
+	var hashRateReportsChannel = make(chan *mining.HashRateReport, nrOfMiningDevices*10)
 
 	var miner *sia.Miner
 	if *miningAlgorithm == "zcash" {

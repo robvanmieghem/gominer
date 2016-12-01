@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	"github.com/robvanmieghem/go-opencl/cl"
+	"github.com/robvanmieghem/gominer/mining"
 )
 
 var provenSolutions = []struct {
@@ -53,13 +54,13 @@ func TestMine(t *testing.T) {
 		}
 	}
 
-	workChannel := make(chan *MiningWork, len(provenSolutions)+1)
+	workChannel := make(chan *miningWork, len(provenSolutions)+1)
 
 	for _, provenSolution := range provenSolutions {
-		workChannel <- &MiningWork{provenSolution.workHeader, provenSolution.offset, nil}
+		workChannel <- &miningWork{provenSolution.workHeader, provenSolution.offset, nil}
 	}
 	close(workChannel)
-	var hashRateReportsChannel = make(chan *HashRateReport, len(provenSolutions)+1)
+	var hashRateReportsChannel = make(chan *mining.HashRateReport, len(provenSolutions)+1)
 	validator := newSubmittedHeaderValidator(len(provenSolutions))
 	miner := &singleDeviceMiner{
 		ClDevice:          clDevice,
