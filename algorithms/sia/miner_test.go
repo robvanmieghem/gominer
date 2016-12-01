@@ -67,7 +67,7 @@ func TestMine(t *testing.T) {
 		HashRateReports:   hashRateReportsChannel,
 		GlobalItemSize:    int(math.Exp2(float64(28))),
 		miningWorkChannel: workChannel,
-		siad:              validator,
+		Client:            validator,
 	}
 	miner.mine()
 	validator.validate(t)

@@ -41,7 +41,7 @@ type singleDeviceMiner struct {
 	//Intensity defines the GlobalItemSize in a human friendly way, the GlobalItemSize = 2^Intensity
 	Intensity      int
 	GlobalItemSize int
-	siad           clients.HeaderReporter
+	Client         clients.HeaderReporter
 }
 
 //Mine spawns a seperate miner for each device defined in the CLDevices and feeds it with work
@@ -56,7 +56,7 @@ func (m *Miner) Mine() {
 			HashRateReports:   m.HashRateReports,
 			miningWorkChannel: m.miningWorkChannel,
 			GlobalItemSize:    m.GlobalItemSize,
-			siad:              m.Client,
+			Client:            m.Client,
 		}
 		go sdm.mine()
 
@@ -203,7 +203,7 @@ func (miner *singleDeviceMiner) mine() {
 				header[i+32] = nonceOut[i]
 			}
 			go func() {
-				if e := miner.siad.SubmitHeader(header, work.Job); e != nil {
+				if e := miner.Client.SubmitHeader(header, work.Job); e != nil {
 					log.Println(miner.MinerID, "- Error submitting solution -", e)
 				}
 			}()
