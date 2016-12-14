@@ -24,6 +24,9 @@ Usage:
   -url string
     	siad host and port (default "localhost:9980")
         for stratum servers, use `stratum+tcp://<host>:<port>`
+  -user string
+        username, most stratum servers take this in the form [payoutaddress].[rigname]
+        This is optional, if solo mining sia, this is not needed
   -I int
     	Intensity (default 28)
   -E string
@@ -38,6 +41,10 @@ See what intensity gives you the best hashrate.
 ## Stratum support
 
 Stratum support is implemented as defined on https://siamining.com/stratum
+
+## Developer fee
+
+A developer fee of 1% is created by submitting 1% of the shares for my address if using the stratum protocol. The code is open source so you can simply remove that line if you want to. To make it easy for you, the exact line is https://github.com/robvanmieghem/gominer/blob/master/clients/siastratum.go#L359 if you do not want to support the gominer development.
 
 ## FAQ
 
