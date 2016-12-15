@@ -26,7 +26,7 @@ func main() {
 	useCPU := flag.Bool("cpu", false, "If set, also use the CPU for mining, only GPU's are used by default")
 	flag.IntVar(&intensity, "I", intensity, "Intensity")
 	miningAlgorithm := flag.String("algo", "sia", "Mining algorithm, can be `sia` or `zcash`")
-	host := flag.String("url", "localhost:9980", "siad host and port, for stratum servers, use `stratum+tcp://<host>:<port>`")
+	host := flag.String("url", "localhost:9980", "daemon or server host and port, for stratum servers, use `stratum+tcp://<host>:<port>`")
 	pooluser := flag.String("user", "payoutaddress.rigname", "username, most stratum servers take this in the form [payoutaddress].[rigname]")
 	excludedGPUs := flag.String("E", "", "Exclude GPU's: comma separated list of devicenumbers")
 	flag.Parse()
@@ -77,16 +77,14 @@ func main() {
 	nrOfMiningDevices := len(miningDevices)
 	var hashRateReportsChannel = make(chan *mining.HashRateReport, nrOfMiningDevices*10)
 
-	var miner *sia.Miner
+	var miner mining.Miner
 	if *miningAlgorithm == "zcash" {
 		log.Println("Starting zcash mining")
 		c := zcash.NewClient(*host, *pooluser)
 
-		miner = &sia.Miner{
+		miner = &zcash.Miner{
 			ClDevices:       miningDevices,
 			HashRateReports: hashRateReportsChannel,
-			Intensity:       intensity,
-			GlobalItemSize:  globalItemSize,
 			Client:          c,
 		}
 	} else {

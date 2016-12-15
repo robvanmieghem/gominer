@@ -20,3 +20,8 @@ func CreateEmptyBuffer(ctx *cl.Context, flags cl.MemFlag, size int) (buffer *cl.
 	}
 	return
 }
+
+//Miner declares the common 'Mine' method
+type Miner interface {
+	Mine()
+}
