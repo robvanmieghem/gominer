@@ -39,8 +39,8 @@ var blake2b_sigma = [12][16]byte{
 ** Init the state according to Zcash parameters.
  */
 func zcash_blake2b_init(st *blake2b_state_t, hashLength uint64, n uint32, k uint32) {
-	if n > k {
-		log.Panic("n>k")
+	if k >= n {
+		log.Panic("k>=n")
 	}
 	if hashLength > 64 {
 		log.Panic("hash_len > 64")
