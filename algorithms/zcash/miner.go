@@ -42,10 +42,10 @@ func (m *Miner) Mine() {
 }
 
 type solst struct {
-	nr             uint
-	likelyInvalids uint
+	nr             uint32
+	likelyInvalids uint32
 	valid          [maxSolutions]uint8
-	values         [maxSolutions][(1 << equihashParamK)]uint
+	values         [maxSolutions][(1 << equihashParamK)]uint32
 }
 
 func numberOfComputeUnits(gpu string) int {
@@ -228,7 +228,7 @@ func (miner *singleDeviceMiner) verifySolutions(commandQueue *cl.CommandQueue, b
 		log.Printf("ERROR: %d (probably invalid) solutions were dropped!\n", sols.nr-maxSolutions)
 		sols.nr = maxSolutions
 	}
-	for i := 0; uint(i) < sols.nr; i++ {
+	for i := 0; uint32(i) < sols.nr; i++ {
 		solutionsFound += miner.verifySolution(sols, i)
 	}
 	miner.submitSolution(sols, solutionsFound, header, target, job)
@@ -244,7 +244,7 @@ func (miner *singleDeviceMiner) verifySolution(sols *solst, index int) int {
 	var tmp uint8
 	// look for duplicate inputs
 	for i = 0; i < (1 << equihashParamK); i++ {
-		if inputs[i]/uint(8) >= uint(seenLength) {
+		if inputs[i]/uint32(8) >= uint32(seenLength) {
 			log.Printf("Invalid input retrieved from device: %d\n", inputs[i])
 			sols.valid[index] = 0
 			return 0
@@ -262,17 +262,31 @@ func (miner *singleDeviceMiner) verifySolution(sols *solst, index int) int {
 	sols.valid[index] = 1
 	// sort the pairs in place
 	for level := 0; level < equihashParamK; level++ {
-		for i = 0; i < (1 << equihashParamK); i += (2 << uint(level)) {
-			sortPair(&inputs[i], 1<<uint(level))
+		for i := 0; i < (1 << equihashParamK); i += (2 << uint(level)) {
+			len := 1 << uint(level)
+			sortPair(inputs[i:i+len], inputs[i+len:i+(2*len)])
 		}
 	}
 	return 1
 }
 
-func (miner *singleDeviceMiner) submitSolution(solutions *solst, solutionsFound int, header []byte, target []byte, job interface{}) {
-	//TODO
+func sortPair(a, b []uint32) {
+	needSorting := false
+	var tmp uint32
+	for i := 0; i < len(a); i++ {
+		if needSorting || a[i] > b[i] {
+			needSorting = true
+			tmp = a[i]
+			a[i] = b[i]
+			b[i] = tmp
+		} else {
+			if a[i] < b[i] {
+				return
+			}
+		}
+	}
 }
 
-func sortPair(inputs *uint, level int) {
+func (miner *singleDeviceMiner) submitSolution(solutions *solst, solutionsFound int, header []byte, target []byte, job interface{}) {
 	//TODO
 }
