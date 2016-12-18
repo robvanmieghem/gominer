@@ -16,7 +16,7 @@ type HashRateReport struct {
 func CreateEmptyBuffer(ctx *cl.Context, flags cl.MemFlag, size int) (buffer *cl.MemObject) {
 	buffer, err := ctx.CreateEmptyBuffer(flags, size)
 	if err != nil {
-		log.Fatalln(err)
+		log.Panicln(err)
 	}
 	return
 }

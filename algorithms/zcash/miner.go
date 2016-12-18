@@ -125,7 +125,11 @@ func (miner *singleDeviceMiner) mine() {
 	defer kernelSolutions.Release()
 
 	//Create memory buffers
-	bufferDbg := mining.CreateEmptyBuffer(context, cl.MemCopyHostPtr, 8)
+	dbg := make([]byte, 8, 8)
+	bufferDbg, err := context.CreateBufferUnsafe(cl.MemReadWrite|cl.MemCopyHostPtr, 8, unsafe.Pointer(&dbg[0]))
+	if err != nil {
+		log.Panicln(err)
+	}
 	defer bufferDbg.Release()
 
 	var bufferHt [2]*cl.MemObject
@@ -163,9 +167,9 @@ func (miner *singleDeviceMiner) mine() {
 		blake := &blake2b_state_t{}
 		zcash_blake2b_init(blake, zcashHashLength, equihashParamN, equihashParamK)
 		zcash_blake2b_update(blake, header[:128], false)
-		bufferBlake, err := context.CreateBufferUnsafe(cl.MemReadOnly|cl.MemCopyHostPtr, 64, unsafe.Pointer(&blake.h))
+		bufferBlake, err := context.CreateBufferUnsafe(cl.MemReadOnly|cl.MemCopyHostPtr, 64, unsafe.Pointer(&blake.h[0]))
 		if err != nil {
-			log.Panic(err)
+			log.Panicln(err)
 		}
 		var globalWorkgroupSize int
 		var localWorkgroupSize int
@@ -288,5 +292,5 @@ func sortPair(a, b []uint32) {
 }
 
 func (miner *singleDeviceMiner) submitSolution(solutions *solst, solutionsFound int, header []byte, target []byte, job interface{}) {
-	//TODO
+	log.Println("DEBUG: should submit solutions:", *solutions, solutionsFound, header, target, job)
 }
