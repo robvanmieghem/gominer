@@ -22,6 +22,7 @@ var intensity = 28
 var devicesTypesForMining = cl.DeviceTypeGPU
 
 func main() {
+	log.SetOutput(os.Stdout)
 	printVersion := flag.Bool("v", false, "Show version and exit")
 	useCPU := flag.Bool("cpu", false, "If set, also use the CPU for mining, only GPU's are used by default")
 	flag.IntVar(&intensity, "I", intensity, "Intensity")
