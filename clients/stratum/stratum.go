@@ -181,7 +181,6 @@ func (c *Client) Call(serviceMethod string, args []string) (reply interface{}, e
 	rawmsg = append(rawmsg, []byte("\n")...)
 	_, err = c.socket.Write(rawmsg)
 	if err != nil {
-		c.cancelRequest(r.ID)
 		return
 	}
 	//Make sure the request is cancelled if no response is given
