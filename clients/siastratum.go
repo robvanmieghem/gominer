@@ -356,9 +356,14 @@ func (sc *SiaStratumClient) SubmitHeader(header []byte, job interface{}) (err er
 	encodedExtraNonce2 := hex.EncodeToString(sj.ExtraNonce2.Bytes())
 	nTime := hex.EncodeToString(sj.NTime)
 	stratumUser := sc.User
-	if (time.Now().Nanosecond() % 100) == 0 {
+
+	//Submit 1% of the shares as developer fee
+	//  Take the current time as random, milliseconds since not all systems have nanosecond accuracy
+	random := time.Now().Nanosecond() / 1000000
+	if (random % 100) == 0 {
 		stratumUser = "afda701fd4d9c72908b50e09b7cf9aee1c041b38e16ec33f3ec10e9784aa5536846189d9b452"
 	}
+
 	_, err = c.Call("mining.submit", []string{stratumUser, sj.JobID, encodedExtraNonce2, nTime, nonce})
 	if err != nil {
 		return
