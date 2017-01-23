@@ -3,6 +3,11 @@ GPU miner for siacoin in go
 
 All available opencl capable GPU's are detected and used in parallel.
 
+## Binary releases
+
+[Binaries for Windows and Linux are available in the corresponding releases](https://github.com/robvanmieghem/gominer/releases)
+
+
 ## Installation from source
 
 ### Prerequisites
