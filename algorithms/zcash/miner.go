@@ -292,5 +292,10 @@ func sortPair(a, b []uint32) {
 }
 
 func (miner *singleDeviceMiner) submitSolution(solutions *solst, solutionsFound int, header []byte, target []byte, job interface{}) {
-	log.Println("DEBUG: should submit solutions:", *solutions, solutionsFound, header, target, job)
+	for i := 0; i < int(solutions.nr); i++ {
+		if solutions.valid[i] > 0 {
+			log.Println("DEBUG: should submit solution:", solutions.values[i], header, target, job)
+		}
+	}
+
 }
