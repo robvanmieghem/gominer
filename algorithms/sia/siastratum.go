@@ -77,13 +77,13 @@ func (sc *StratumClient) Start() {
 	//Close the connection on an error will cause the client to generate an error, resulting in te errorhandler to be triggered
 	result, err := sc.stratumclient.Call("mining.subscribe", []string{"gominer"})
 	if err != nil {
-		log.Println("ERROR Error in response from stratum", err)
+		log.Println("ERROR Error in response from stratum:", err)
 		sc.stratumclient.Close()
 		return
 	}
 	reply, ok := result.([]interface{})
 	if !ok || len(reply) < 3 {
-		log.Println("ERROR Invalid response from stratum", result)
+		log.Println("ERROR Invalid response from stratum:", result)
 		sc.stratumclient.Close()
 		return
 	}
