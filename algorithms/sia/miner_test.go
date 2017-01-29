@@ -1,4 +1,4 @@
-package main
+package sia
 
 import (
 	"bytes"
@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	"github.com/robvanmieghem/go-opencl/cl"
+	"github.com/robvanmieghem/gominer/mining"
 )
 
 var provenSolutions = []struct {
@@ -43,7 +44,7 @@ func TestMine(t *testing.T) {
 
 	var clDevice *cl.Device
 	for _, platform := range platforms {
-		platormDevices, err := cl.GetDevices(platform, devicesTypesForMining)
+		platormDevices, err := cl.GetDevices(platform, cl.DeviceTypeGPU)
 		if err != nil {
 			log.Fatalln(err)
 		}
@@ -53,21 +54,21 @@ func TestMine(t *testing.T) {
 		}
 	}
 
-	workChannel := make(chan *MiningWork, len(provenSolutions)+1)
+	workChannel := make(chan *miningWork, len(provenSolutions)+1)
 
 	for _, provenSolution := range provenSolutions {
-		workChannel <- &MiningWork{provenSolution.workHeader, provenSolution.offset, nil}
+		workChannel <- &miningWork{provenSolution.workHeader, provenSolution.offset, nil}
 	}
 	close(workChannel)
-	var hashRateReportsChannel = make(chan *HashRateReport, len(provenSolutions)+1)
+	var hashRateReportsChannel = make(chan *mining.HashRateReport, len(provenSolutions)+1)
 	validator := newSubmittedHeaderValidator(len(provenSolutions))
-	miner := &Miner{
-		clDevice:          clDevice,
-		minerID:           0,
-		hashRateReports:   hashRateReportsChannel,
+	miner := &singleDeviceMiner{
+		ClDevice:          clDevice,
+		MinerID:           0,
+		HashRateReports:   hashRateReportsChannel,
 		GlobalItemSize:    int(math.Exp2(float64(28))),
 		miningWorkChannel: workChannel,
-		siad:              validator,
+		Client:            validator,
 	}
 	miner.mine()
 	validator.validate(t)

@@ -1,4 +1,4 @@
-package clients
+package sia
 
 import (
 	"encoding/hex"
@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/dchest/blake2b"
+	"github.com/robvanmieghem/gominer/clients"
 	"github.com/robvanmieghem/gominer/clients/stratum"
 )
 
@@ -18,14 +19,8 @@ const (
 	HashSize = 32
 )
 
-type (
-	//Target declares what a solution should be smaller than to be accepted
-	Target      [HashSize]byte
-	extraNonce2 struct {
-		value uint64
-		size  uint
-	}
-)
+//Target declares what a solution should be smaller than to be accepted
+type Target [HashSize]byte
 
 type stratumJob struct {
 	JobID        string
@@ -37,82 +32,32 @@ type stratumJob struct {
 	NBits        string
 	NTime        []byte
 	CleanJobs    bool
-	ExtraNonce2  extraNonce2
+	ExtraNonce2  stratum.ExtraNonce2
 }
 
-//SiaStratumClient is a sia client using the stratum protocol
-type SiaStratumClient struct {
+//StratumClient is a sia client using the stratum protocol
+type StratumClient struct {
 	connectionstring string
 	User             string
 
-	mutex               sync.Mutex // protects following
-	stratumclient       *stratum.Client
-	extranonce1         []byte
-	extranonce2Size     uint
-	target              Target
-	currentJob          stratumJob
-	deprecationChannels map[string]chan bool
-
-	DeprecatedJobCall DeprecatedJobCall
-}
-
-//Bytes is a bigendian representation of the extranonce
-func (en *extraNonce2) Bytes() (b []byte) {
-	b = make([]byte, en.size, en.size)
-	for i := uint(0); i < en.size; i++ {
-		b[(en.size-1)-i] = byte(en.value >> (i * 8))
-	}
-	return
-}
-
-//Increment increases the nonce with 1, an error is returned if the resulting is value is bigger than possible given the size
-func (en *extraNonce2) Increment() (err error) {
-	en.value++
-	//TODO: check if does not overflow compared to the allowed size
-	return
-}
-
-func hexStringToBytes(v interface{}) (result []byte, err error) {
-	var ok bool
-	var stringValue string
-	if stringValue, ok = v.(string); !ok {
-		return nil, errors.New("Not a valid string")
-	}
-	if result, err = hex.DecodeString(stringValue); err != nil {
-		return nil, errors.New("Not a valid hexadecimal value")
-	}
-	return
-}
-
-//deprecateOutstandingJobs closes all deprecationChannels and removes them from the list
-// This method is not threadsafe
-func (sc *SiaStratumClient) deprecateOutstandingJobs() {
-	for jobid, deprecatedJob := range sc.deprecationChannels {
-		close(deprecatedJob)
-		delete(sc.deprecationChannels, jobid)
-	}
-	call := sc.DeprecatedJobCall
-	if call != nil {
-		go call()
-	}
-}
-
-//SetDeprecatedJobCall sets the function to be called when the previous jobs should be abandoned
-func (sc *SiaStratumClient) SetDeprecatedJobCall(call DeprecatedJobCall) {
-	sc.DeprecatedJobCall = call
+	mutex           sync.Mutex // protects following
+	stratumclient   *stratum.Client
+	extranonce1     []byte
+	extranonce2Size uint
+	target          Target
+	currentJob      stratumJob
+	clients.BaseClient
 }
 
 //Start connects to the stratumserver and processes the notifications
-func (sc *SiaStratumClient) Start() {
+func (sc *StratumClient) Start() {
 	sc.mutex.Lock()
 	defer func() {
 		sc.mutex.Unlock()
 	}()
-	if sc.deprecationChannels != nil {
-		sc.deprecateOutstandingJobs()
-	} else {
-		sc.deprecationChannels = make(map[string]chan bool)
-	}
+
+	sc.DeprecateOutstandingJobs()
+
 	sc.stratumclient = &stratum.Client{}
 	//In case of an error, drop the current stratumclient and restart
 	sc.stratumclient.ErrorCallback = func(err error) {
@@ -132,19 +77,19 @@ func (sc *SiaStratumClient) Start() {
 	//Close the connection on an error will cause the client to generate an error, resulting in te errorhandler to be triggered
 	result, err := sc.stratumclient.Call("mining.subscribe", []string{"gominer"})
 	if err != nil {
-		log.Println("ERROR Error in response from stratum", err)
+		log.Println("ERROR Error in response from stratum:", err)
 		sc.stratumclient.Close()
 		return
 	}
 	reply, ok := result.([]interface{})
 	if !ok || len(reply) < 3 {
-		log.Println("ERROR Invalid response from stratum", result)
+		log.Println("ERROR Invalid response from stratum:", result)
 		sc.stratumclient.Close()
 		return
 	}
 
 	//Keep the extranonce1 and extranonce2_size from the reply
-	if sc.extranonce1, err = hexStringToBytes(reply[1]); err != nil {
+	if sc.extranonce1, err = stratum.HexStringToBytes(reply[1]); err != nil {
 		log.Println("ERROR Invalid extrannonce1 from startum")
 		sc.stratumclient.Close()
 		return
@@ -160,7 +105,7 @@ func (sc *SiaStratumClient) Start() {
 
 }
 
-func (sc *SiaStratumClient) subscribeToStratumDifficultyChanges() {
+func (sc *StratumClient) subscribeToStratumDifficultyChanges() {
 	sc.stratumclient.SetNotificationHandler("mining.set_difficulty", func(params []interface{}) {
 		if params == nil || len(params) < 1 {
 			log.Println("ERROR No difficulty parameter supplied by stratum server")
@@ -176,7 +121,7 @@ func (sc *SiaStratumClient) subscribeToStratumDifficultyChanges() {
 	})
 }
 
-func (sc *SiaStratumClient) subscribeToStratumJobNotifications() {
+func (sc *StratumClient) subscribeToStratumJobNotifications() {
 	sc.stratumclient.SetNotificationHandler("mining.notify", func(params []interface{}) {
 		log.Println("New job received from stratum server")
 		if params == nil || len(params) < 9 {
@@ -186,7 +131,7 @@ func (sc *SiaStratumClient) subscribeToStratumJobNotifications() {
 
 		sj := stratumJob{}
 
-		sj.ExtraNonce2.size = sc.extranonce2Size
+		sj.ExtraNonce2.Size = sc.extranonce2Size
 
 		var ok bool
 		var err error
@@ -194,15 +139,15 @@ func (sc *SiaStratumClient) subscribeToStratumJobNotifications() {
 			log.Println("ERROR Wrong job_id parameter supplied by stratum server")
 			return
 		}
-		if sj.PrevHash, err = hexStringToBytes(params[1]); err != nil {
+		if sj.PrevHash, err = stratum.HexStringToBytes(params[1]); err != nil {
 			log.Println("ERROR Wrong prevhash parameter supplied by stratum server")
 			return
 		}
-		if sj.Coinbase1, err = hexStringToBytes(params[2]); err != nil {
+		if sj.Coinbase1, err = stratum.HexStringToBytes(params[2]); err != nil {
 			log.Println("ERROR Wrong coinb1 parameter supplied by stratum server")
 			return
 		}
-		if sj.Coinbase2, err = hexStringToBytes(params[3]); err != nil {
+		if sj.Coinbase2, err = stratum.HexStringToBytes(params[3]); err != nil {
 			log.Println("ERROR Wrong coinb2 parameter supplied by stratum server")
 			return
 		}
@@ -215,7 +160,7 @@ func (sc *SiaStratumClient) subscribeToStratumJobNotifications() {
 		}
 		sj.MerkleBranch = make([][]byte, len(merklebranch), len(merklebranch))
 		for i, branch := range merklebranch {
-			if sj.MerkleBranch[i], err = hexStringToBytes(branch); err != nil {
+			if sj.MerkleBranch[i], err = stratum.HexStringToBytes(branch); err != nil {
 				log.Println("ERROR Wrong merkle_branch parameter supplied by stratum server")
 				return
 			}
@@ -229,7 +174,7 @@ func (sc *SiaStratumClient) subscribeToStratumJobNotifications() {
 			log.Println("ERROR Wrong nbits parameter supplied by stratum server")
 			return
 		}
-		if sj.NTime, err = hexStringToBytes(params[7]); err != nil {
+		if sj.NTime, err = stratum.HexStringToBytes(params[7]); err != nil {
 			log.Println("ERROR Wrong ntime parameter supplied by stratum server")
 			return
 		}
@@ -241,14 +186,14 @@ func (sc *SiaStratumClient) subscribeToStratumJobNotifications() {
 	})
 }
 
-func (sc *SiaStratumClient) addNewStratumJob(sj stratumJob) {
+func (sc *StratumClient) addNewStratumJob(sj stratumJob) {
 	sc.mutex.Lock()
 	defer sc.mutex.Unlock()
 	sc.currentJob = sj
 	if sj.CleanJobs {
-		sc.deprecateOutstandingJobs()
+		sc.DeprecateOutstandingJobs()
 	}
-	sc.deprecationChannels[sj.JobID] = make(chan bool)
+	sc.AddJobToDeprecate(sj.JobID)
 }
 
 // IntToTarget converts a big.Int to a Target.
@@ -284,7 +229,7 @@ func difficultyToTarget(difficulty float64) (target Target, err error) {
 	return
 }
 
-func (sc *SiaStratumClient) setDifficulty(difficulty float64) {
+func (sc *StratumClient) setDifficulty(difficulty float64) {
 	target, err := difficultyToTarget(difficulty)
 	if err != nil {
 		log.Println("ERROR Error setting difficulty to ", difficulty)
@@ -295,7 +240,7 @@ func (sc *SiaStratumClient) setDifficulty(difficulty float64) {
 }
 
 //GetHeaderForWork fetches new work from the SIA daemon
-func (sc *SiaStratumClient) GetHeaderForWork() (target, header []byte, deprecationChannel chan bool, job interface{}, err error) {
+func (sc *StratumClient) GetHeaderForWork() (target, header []byte, deprecationChannel chan bool, job interface{}, err error) {
 	sc.mutex.Lock()
 	defer sc.mutex.Unlock()
 
@@ -305,7 +250,7 @@ func (sc *SiaStratumClient) GetHeaderForWork() (target, header []byte, deprecati
 		return
 	}
 
-	deprecationChannel = sc.deprecationChannels[sc.currentJob.JobID]
+	deprecationChannel = sc.GetDeprecationChannel(sc.currentJob.JobID)
 
 	target = sc.target[:]
 
@@ -338,32 +283,19 @@ func (sc *SiaStratumClient) GetHeaderForWork() (target, header []byte, deprecati
 	return
 }
 
-//NeedNewHeader returns true if a new job is present
-func (sc *SiaStratumClient) NeedNewHeader(job interface{}) bool {
-	sj, _ := job.(stratumJob)
-	sc.mutex.Lock()
-	defer sc.mutex.Unlock()
-	return sj.JobID != sc.currentJob.JobID
-}
-
-//SubmitHeader reports a solved header to the SIA daemon
-func (sc *SiaStratumClient) SubmitHeader(header []byte, job interface{}) (err error) {
+//SubmitHeader reports a solution to the stratum server
+func (sc *StratumClient) SubmitHeader(header []byte, job interface{}) (err error) {
 	sj, _ := job.(stratumJob)
 	nonce := hex.EncodeToString(header[32:40])
+	encodedExtraNonce2 := hex.EncodeToString(sj.ExtraNonce2.Bytes())
+	nTime := hex.EncodeToString(sj.NTime)
 	sc.mutex.Lock()
 	c := sc.stratumclient
 	sc.mutex.Unlock()
-	encodedExtraNonce2 := hex.EncodeToString(sj.ExtraNonce2.Bytes())
-	nTime := hex.EncodeToString(sj.NTime)
 	stratumUser := sc.User
-
-	//Submit 1% of the shares as developer fee
-	//  Take the current time as random, milliseconds since not all systems have nanosecond accuracy
-	random := time.Now().Nanosecond() / 1000000
-	if (random % 100) == 0 {
+	if (time.Now().Nanosecond() % 100) == 0 {
 		stratumUser = "afda701fd4d9c72908b50e09b7cf9aee1c041b38e16ec33f3ec10e9784aa5536846189d9b452"
 	}
-
 	_, err = c.Call("mining.submit", []string{stratumUser, sj.JobID, encodedExtraNonce2, nTime, nonce})
 	if err != nil {
 		return

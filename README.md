@@ -1,5 +1,5 @@
 # gominer
-GPU miner for siacoin in go
+GPU miner for sia in go
 
 All available opencl capable GPU's are detected and used in parallel.
 
@@ -41,7 +41,7 @@ Usage:
   -v	Show version and exit
 ```
 
-See what intensity gives you the best hashrate.
+See what intensity gives you the best hashrate, increasing the intensity also increases the stale rate though.
 
 ## Stratum support
 
@@ -53,7 +53,7 @@ A developer fee of 1% is created by submitting 1% of the shares for my address i
 
 ## FAQ
 
-- *ERROR fetching work - Get http://localhost:9980/miner/headerforwork: dial tcp 127.0.0.1:9980: connection refused*
+- ERROR fetching work - Get http://localhost:9980/miner/headerforwork: dial tcp 127.0.0.1:9980: connection refused
 
   Make sure `siad` is running
 
@@ -65,11 +65,11 @@ A developer fee of 1% is created by submitting 1% of the shares for my address i
 
   Check the sia documentation.
 
-- *You have to help me set up mining SIA*
+- You have to help me set up mining SIA
 
   No I don't
 
-- *Can you log in on my machine to configure my mining setup?*
+- Can you log in on my machine to configure my mining setup?
 
   No
 
