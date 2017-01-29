@@ -1,5 +1,5 @@
 # gominer
-GPU miner for sia in go
+GPU miner for sia and zcash in go
 
 All available opencl capable GPU's are detected and used in parallel.
 
@@ -32,6 +32,8 @@ Usage:
   -user string
         username, most stratum servers take this in the form [payoutaddress].[rigname]
         This is optional, if solo mining sia, this is not needed
+  - algo string
+        Mining algorithm, can be `sia` or `zcash` (default "sia")
   -I int
     	Intensity (default 28)
   -E string
