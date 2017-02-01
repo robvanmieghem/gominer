@@ -103,6 +103,17 @@ func (sc *StratumClient) Start() {
 	}
 	sc.extranonce2Size = uint(extranonce2Size)
 
+	//Authorize the miner
+	go func() {
+		result, err = sc.stratumclient.Call("mining.authorize", []string{sc.User, ""})
+		if err != nil {
+			log.Println("Unable to authorize:", err)
+			sc.stratumclient.Close()
+			return
+		}
+		log.Println("Authorization of", sc.User, ":", result)
+	}()
+
 }
 
 func (sc *StratumClient) subscribeToStratumDifficultyChanges() {
