@@ -49,7 +49,7 @@ Stratum support is implemented as defined on https://siamining.com/stratum
 
 ## Developer fee
 
-A developer fee of 1% is created by submitting 1% of the shares for my address if using the stratum protocol. The code is open source so you can simply remove that line if you want to. To make it easy for you, the exact line is https://github.com/robvanmieghem/gominer/blob/master/clients/siastratum.go#L359 if you do not want to support the gominer development.
+A developer fee of 1% is created by submitting 1% of the shares for my address if using the stratum protocol. The code is open source so you can simply remove that line if you want to. To make it easy for you, the exact line is https://github.com/robvanmieghem/gominer/blob/master/algorithms/sia/siastratum.go#L307 if you do not want to support the gominer development.
 
 ## FAQ
 
