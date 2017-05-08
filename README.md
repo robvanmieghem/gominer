@@ -52,6 +52,9 @@ Stratum support is implemented as defined on https://siamining.com/stratum
 A developer fee of 1% is created by submitting 1% of the shares for my address if using the stratum protocol. The code is open source so you can simply remove that line if you want to. To make it easy for you, the exact line is https://github.com/robvanmieghem/gominer/blob/master/algorithms/sia/siastratum.go#L307 if you do not want to support the gominer development.
 
 ## FAQ
+- ERROR fetching work - Status code 404
+
+  If you are solomining, make sure the miner module is enabled in siad: `siad -M cghrtwm`
 
 - ERROR fetching work - Get http://localhost:9980/miner/headerforwork: dial tcp 127.0.0.1:9980: connection refused
 
