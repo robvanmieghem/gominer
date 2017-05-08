@@ -72,18 +72,6 @@ A developer fee of 1% is created by submitting 1% of the shares for my address i
 
   No I don't
 
-- Can you log in on my machine to configure my mining setup?
-
-  No
-
-- I don't know how to get it working, can you help me?
-
-  I get this question at least once a day. Seriously, you can not expect me to set up and support everyone's mining equipment.
-
-- I don't know how to get it working, can you help me please please please ?
-
-  Everyone has his price, make me an offer I can't refuse so I don't have to continue answering `no` to this question.
-
 ## Support development
 
 If you really want to, you can support the gominer development:
