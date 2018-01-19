@@ -42,6 +42,13 @@ Usage:
 ```
 
 See what intensity gives you the best hashrate, increasing the intensity also increases the stale rate though.
+##EXAMPLES
+**poolmining:**
+`gominer -url stratum+tcp://siamining.com:3333 -I 28 -user 9afafe46fbd4d2fc3f6dd61ae36686a8ce3d9ddd84a8c8fa72dddb5fe09e6e61f2e2e60f974c.example`
+**solomining:**
+start siad with the miner module enabled and start gominer:
+`siad -M cghrtwm`
+`gominer`
 
 ## Stratum support
 
@@ -54,7 +61,7 @@ A developer fee of 1% is created by submitting 1% of the shares for my address i
 ## FAQ
 - ERROR fetching work - Status code 404
 
-  If you are solomining, make sure the miner module is enabled in siad: `siad -M cghrtwm`
+  If you are solomining, make siad is running and the miner module is enabled in siad: `siad -M cghrtwm`
 
 - ERROR fetching work - Get http://localhost:9980/miner/header: dial tcp 127.0.0.1:9980: connection refused
 
@@ -78,4 +85,4 @@ If you really want to, you can support the gominer development:
 
 SIA: 79b9089439218734192db7016f07dc5a0e2a95e873992dd782a1e1306b2c44e116e1d8ded910
 
-BTC: 36bQun9zTTvBzHVxvokrLeBACEPGQrebAP
+BTC: 1LYjTFXr4RfFT2gQkAswk5Juua7cnjVyMf
